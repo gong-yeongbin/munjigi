@@ -76,7 +76,7 @@ resource "aws_iam_role" "terraform" {
   assume_role_policy = data.aws_iam_policy_document.terraform_trust.json
 }
 
-# 프론트 배포에 필요한 서비스만. AdministratorAccess는 쓰지 않는다. 백엔드(ECS·RDS)를 올릴 때 statement를 더한다
+# 프론트 배포에 필요한 서비스만. AdministratorAccess는 쓰지 않는다. 백엔드는 B에 만들지 않고 A 계정 역할을 assume해 올린다(AssumeA)
 data "aws_iam_policy_document" "terraform" {
   statement {
     sid       = "State"
@@ -112,6 +112,12 @@ data "aws_iam_policy_document" "terraform" {
     sid       = "ReadOidc"
     actions   = ["iam:GetOpenIDConnectProvider"]
     resources = [aws_iam_openid_connect_provider.github.arn]
+  }
+  # infra/backend의 provider가 이 역할을 assume한다. A 쪽 trust(infra/bootstrap-a)가 이 B 역할만 허용한다
+  statement {
+    sid       = "AssumeA"
+    actions   = ["sts:AssumeRole"]
+    resources = [var.a_terraform_role_arn]
   }
 }
 
