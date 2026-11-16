@@ -9,3 +9,9 @@ variable "github_repo" {
   type        = string
   default     = "*@20896639/*@1381437467"
 }
+
+variable "a_terraform_role_arn" {
+  description = "백엔드를 올리는 A 계정(mecross)의 Terraform 역할. infra/bootstrap-a가 만든다. infra/backend는 이 B 역할로 들어와 저 역할을 assume해 A 자원을 만든다"
+  type        = string
+  default     = "arn:aws:iam::478657622805:role/mecrosspro-terraform"
+}
