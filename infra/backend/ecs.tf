@@ -29,11 +29,11 @@ locals {
   }
 }
 
+# 사양은 mecross 서비스와 같은 1 vCPU / 2 GiB(사용자 결정 2026-11-16). api·worker 두 Node 프로세스가 한 태스크에 있다
 resource "aws_ecs_task_definition" "backend" {
   family                   = "${var.project}-backend"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  # mecross 서비스와 같은 사양(사용자 결정 2026-11-16). api·worker 두 Node 프로세스가 한 태스크에 있다
   cpu                      = 1024
   memory                   = 2048
   execution_role_arn       = aws_iam_role.execution.arn
