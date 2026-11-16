@@ -1,5 +1,6 @@
 # 백엔드 이미지 빌드 → ECR push → 마이그레이션 run-task → :latest 재태그 → ECS 서비스 재배포.
 # main의 production 환경에서만, A 계정(mecross)의 배포 역할(BACKEND_DEPLOY_ROLE_ARN, infra/backend output)로.
+# main에 직접 push해도 배포된다. 대신 같은 커밋의 ci(check)가 통과할 때까지 기다리고, 실패면 배포하지 않는다.
 # A 계정 자원이라 이름이 munjigi가 아니라 mecrosspro다(infra/backend/variables.tf의 project)
 name: deploy-backend
 
@@ -19,6 +20,7 @@ on:
 permissions:
   id-token: write
   contents: read
+  checks: read
 
 # 배포가 겹치면 어느 이미지가 남는지 알 수 없다. push가 끝난 배포를 중간에 끊으면 서비스가 어정쩡해지므로 cancel도 하지 않는다
 concurrency:
@@ -36,12 +38,28 @@ jobs:
   deploy:
     # Fargate 태스크가 ARM64(Graviton)라 이미지도 arm64여야 한다. x86 러너의 QEMU 에뮬레이션은 몇 배 느려 arm 러너에서 네이티브로 빌드한다(공개 저장소라 무료)
     runs-on: ubuntu-24.04-arm
-    timeout-minutes: 30
+    timeout-minutes: 40
     environment:
       name: production
       url: https://api.munjigi.dev/health
     steps:
       - uses: actions/checkout@v4
+
+      # 같은 커밋의 ci(job 이름 check)가 끝나길 기다린다. 성공이면 계속, 실패·취소면 배포하지 않는다. 아직 안 떴으면(null) 계속 기다린다
+      - name: ci 통과 대기
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for _ in $(seq 1 80); do
+            STATUS=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/check-runs?check_name=check" --jq '.check_runs[0] | "\(.status) \(.conclusion)"')
+            case "$STATUS" in
+              "completed success") echo "ci 통과"; exit 0 ;;
+              completed*) echo "ci 결과가 success가 아니다: $STATUS"; exit 1 ;;
+              *) echo "ci 대기 중: $STATUS"; sleep 15 ;;
+            esac
+          done
+          echo "ci 대기 시간 초과(20분)"; exit 1
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
