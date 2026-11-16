@@ -1,4 +1,4 @@
-# apply 뒤 아래 둘을 저장소 variables에 넣는다: BACKEND_DEPLOY_ROLE_ARN(deploy_role_arn), MIGRATE_NETWORK_CONFIG(migrate_network_config)
+# apply 뒤 deploy_role_arn을 저장소 variable BACKEND_DEPLOY_ROLE_ARN에 넣는다. 마이그레이션 태스크의 네트워크 설정은 deploy-backend.yml이 서비스에서 읽는다
 output "deploy_role_arn" {
   value = aws_iam_role.deploy.arn
 }
@@ -9,11 +9,6 @@ output "ecr_repository_url" {
 
 output "api_host" {
   value = local.api_host
-}
-
-# deploy-backend.yml이 run-task --network-configuration에 그대로 넣는 값. 서비스와 같은 서브넷·SG
-output "migrate_network_config" {
-  value = "awsvpcConfiguration={subnets=[${data.aws_subnet.app.id}],securityGroups=[${data.aws_security_group.app.id}],assignPublicIp=ENABLED}"
 }
 
 # A bastion에서 psql로 한 번 실행한다. 비밀번호는 aws ssm get-parameter --name /<project>/prod/DATABASE_URL --with-decryption 값의 것
