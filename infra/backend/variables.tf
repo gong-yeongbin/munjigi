@@ -39,10 +39,9 @@ variable "google_client_id" {
 }
 
 variable "a" {
-  description = "빌려 쓰는 A 계정(mecross) 자원. ID 대신 이름으로 찾아, A에서 이름이 바뀌면 plan이 실패해 바로 드러난다(조용히 끊기지 않음)"
+  description = "빌려 쓰는 A 계정(mecross) 자원. ID 대신 이름으로 찾아, A에서 이름이 바뀌면 plan이 실패해 바로 드러난다(조용히 끊기지 않음). VPC는 ALB의 것을 쓴다"
   type = object({
     account_id      = string
-    vpc_name        = string
     app_subnet_name = string
     app_sg_name     = string
     alb_name        = string
@@ -52,7 +51,6 @@ variable "a" {
   })
   default = {
     account_id      = "478657622805"
-    vpc_name        = "mecross-vpc"
     app_subnet_name = "mecross-public-0"
     app_sg_name     = "mecross-app"
     alb_name        = "mecross-alb"

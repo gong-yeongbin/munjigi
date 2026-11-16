@@ -47,7 +47,7 @@ resource "aws_lb_target_group" "api" {
   port        = local.container_port
   protocol    = "HTTP"
   target_type = "ip"
-  vpc_id      = data.aws_vpc.a.id
+  vpc_id      = local.vpc_id
 
   deregistration_delay = 30
 
