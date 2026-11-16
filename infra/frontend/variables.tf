@@ -10,6 +10,12 @@ variable "domain" {
   default     = "munjigi.dev"
 }
 
+variable "api_origin" {
+  description = "CloudFront가 /api/* 를 넘기는 백엔드 호스트. 비우면 api.<domain>(infra/backend가 A 계정 ALB에 붙인 이름). domain도 비어 있으면 /api 동작을 만들지 않는다"
+  type        = string
+  default     = ""
+}
+
 variable "github_repo" {
   description = "배포 역할을 assume할 수 있는 GitHub 저장소. OIDC sub가 immutable subject 형식이라 이름 자리는 *로 두고 소유자 ID·저장소 ID에만 묶는다. bootstrap의 github_repo와 같은 값"
   type        = string
