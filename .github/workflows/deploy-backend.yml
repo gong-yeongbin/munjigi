@@ -1,0 +1,108 @@
+# 백엔드 이미지 빌드 → ECR push → 마이그레이션 run-task → :latest 재태그 → ECS 서비스 재배포.
+# main의 production 환경에서만, A 계정(mecross)의 배포 역할(BACKEND_DEPLOY_ROLE_ARN, infra/backend output)로.
+# A 계정 자원이라 이름이 munjigi가 아니라 mecrosspro다(infra/backend/variables.tf의 project)
+name: deploy-backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/backend/**"
+      - "packages/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "package.json"
+      - ".dockerignore"
+      - ".github/workflows/deploy-backend.yml"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+# 배포가 겹치면 어느 이미지가 남는지 알 수 없다. push가 끝난 배포를 중간에 끊으면 서비스가 어정쩡해지므로 cancel도 하지 않는다
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+env:
+  ECS_CLUSTER: mecross-cluster
+  ECS_SERVICE: mecrosspro-backend
+  ECR_REPOSITORY: mecrosspro-backend
+  MIGRATE_TASKDEF: mecrosspro-migrate
+  MIGRATE_LOG_GROUP: /ecs/mecrosspro-migrate
+
+jobs:
+  deploy:
+    # Fargate 태스크가 ARM64(Graviton)라 이미지도 arm64여야 한다. x86 러너의 QEMU 에뮬레이션은 몇 배 느려 arm 러너에서 네이티브로 빌드한다(공개 저장소라 무료)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    environment:
+      name: production
+      url: https://api.munjigi.dev/health
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.BACKEND_DEPLOY_ROLE_ARN }}
+          aws-region: ap-northeast-2
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # :<sha>는 런타임 이미지(추적·롤백용), :migrate는 prisma CLI가 든 마이그레이션 이미지. :latest는 마이그레이션이 성공한 뒤에만 붙인다(아래)
+      - name: build and push
+        env:
+          IMAGE: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
+        run: |
+          docker build -f apps/backend/Dockerfile --target runner -t "$IMAGE:${{ github.sha }}" .
+          docker build -f apps/backend/Dockerfile --target migrate -t "$IMAGE:migrate" .
+          docker push "$IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:migrate"
+
+      # 새 코드를 띄우기 전에 스키마를 맞춘다. 네트워크 설정은 서비스 것을 그대로 읽어 서브넷 id를 워크플로에 박지 않는다.
+      # Spot 중단이 DDL 도중에 나면 곤란하므로 FARGATE(온디맨드)로 띄운다
+      - name: migrate
+        shell: bash
+        run: |
+          NETWORK=$(aws ecs describe-services --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE" \
+            --query 'services[0].networkConfiguration' --output json)
+
+          TASK_ARN=$(aws ecs run-task --cluster "$ECS_CLUSTER" --task-definition "$MIGRATE_TASKDEF" \
+            --launch-type FARGATE --network-configuration "$NETWORK" \
+            --query 'tasks[0].taskArn' --output text)
+          echo "migration task: $TASK_ARN"
+
+          aws ecs wait tasks-stopped --cluster "$ECS_CLUSTER" --tasks "$TASK_ARN"
+
+          EXIT_CODE=$(aws ecs describe-tasks --cluster "$ECS_CLUSTER" --tasks "$TASK_ARN" \
+            --query 'tasks[0].containers[0].exitCode' --output text)
+
+          # awslogs 스트림 이름은 <prefix>/<컨테이너>/<태스크 id>. 둘 다 migrate
+          aws logs get-log-events --log-group-name "$MIGRATE_LOG_GROUP" \
+            --log-stream-name "migrate/migrate/${TASK_ARN##*/}" \
+            --query 'events[].message' --output text || true
+
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "마이그레이션 실패 (exit $EXIT_CODE). 배포를 중단한다. :latest는 바뀌지 않았다"
+            exit 1
+          fi
+
+      # 태스크 정의는 Terraform이 소유해 :latest를 가리킨다. 마이그레이션이 성공한 뒤에만 :latest를 이 sha로 옮겨 실패한 코드가 서비스에 가지 않게 한다.
+      # 롤백은 이전 sha로 같은 명령을 돌리고 재배포한다. 같은 digest면 ImageAlreadyExists가 나는데 그건 성공과 같다
+      - name: retag latest
+        shell: bash
+        run: |
+          MANIFEST=$(aws ecr batch-get-image --repository-name "$ECR_REPOSITORY" \
+            --image-ids imageTag="${{ github.sha }}" --query 'images[0].imageManifest' --output text)
+          if ! OUT=$(aws ecr put-image --repository-name "$ECR_REPOSITORY" --image-tag latest --image-manifest "$MANIFEST" 2>&1); then
+            echo "$OUT"
+            grep -q ImageAlreadyExistsException <<<"$OUT" || exit 1
+          fi
+
+      # 실패하면 deployment_circuit_breaker가 이전 태스크로 되돌린다. services-stable이 그 결과까지 기다린다
+      - name: redeploy
+        run: |
+          aws ecs update-service --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE" --force-new-deployment > /dev/null
+          aws ecs wait services-stable --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE"
