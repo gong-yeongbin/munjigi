@@ -84,6 +84,13 @@ data "aws_iam_policy_document" "terraform" {
       "arn:aws:logs:${var.region}:${local.account_id}:log-group:/ecs/${var.project}-*:*",
     ]
   }
+  # provider가 로그 그룹·파라미터를 만든 뒤 상태를 읽을 때 쓰는 List류 작업. 리소스를 못 좁혀 *.
+  # 없으면 apply가 "not authorized to perform: logs:DescribeLogGroups / ssm:DescribeParameters"로 생성 직후 실패한다(2026-11-16 첫 apply)
+  statement {
+    sid       = "ListLogsAndParameters"
+    actions   = ["logs:DescribeLogGroups", "ssm:DescribeParameters"]
+    resources = ["*"]
+  }
   # 실행·태스크·배포 역할. infra/bootstrap의 DeployRoles와 같은 집합에 ECS가 요구하는 PassRole·관리형 정책 부착을 더한다
   statement {
     sid = "ProjectRoles"
