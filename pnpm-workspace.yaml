@@ -8,3 +8,6 @@ onlyBuiltDependencies:
   - "@swc/core"
   - esbuild
   - msw
+  # prisma migrate deploy가 쓰는 schema engine 바이너리. 허용하지 않으면 CLI가 첫 실행 때 내려받는데,
+  # ECS의 마이그레이션 태스크(Dockerfile migrate 단계)에서 매번 받게 되므로 install 때 받아 이미지에 넣는다.
+  - "@prisma/engines"
