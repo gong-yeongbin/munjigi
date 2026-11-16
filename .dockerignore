@@ -1,0 +1,21 @@
+# 백엔드 이미지 빌드 컨텍스트(모노레포 루트)에서 뺄 것. Dockerfile이 COPY하는 범위를 소스와 매니페스트로 좁힌다.
+# .env가 들어가면 ConfigModule이 자동으로 읽어 ECS가 넣은 환경 변수를 덮는다. node_modules·dist는 호스트(macOS) 산출물이라
+# 이미지 안에서 쓸 수 없고 레이어 캐시만 깨뜨린다.
+**/node_modules
+**/dist
+**/coverage
+**/.turbo
+**/.env
+**/.env.*
+.git
+.github
+.idea
+.claude
+docs
+infra
+# frozen-lockfile 검증에 워크스페이스 전체 package.json이 필요해 프론트는 그 파일만 남긴다
+apps/frontend/*
+!apps/frontend/package.json
+# 테스트·.http 파일은 이미지에 필요 없다. prisma/는 마이그레이션과 스키마라 남긴다
+apps/backend/test
+apps/backend/http

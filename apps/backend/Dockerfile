@@ -39,6 +39,15 @@ RUN pnpm --filter backend deploy --prod --legacy /app
 # `prisma/config`를 불러오지 못하고 런타임에도 필요 없으니 지우고 스키마를 직접 넘긴다.
 RUN cd /app && rm prisma.config.ts && /repo/apps/backend/node_modules/.bin/prisma generate --schema prisma/schema.prisma
 
+# 마이그레이션 전용 이미지. 런타임 이미지(runner)엔 prisma CLI가 없어 build 단계(devDependencies 포함)를 그대로 쓴다.
+# 배포 워크플로가 서비스를 갱신하기 전에 이 이미지(:migrate 태그)를 ECS run-task로 한 번 돌린다.
+#   docker build -f apps/backend/Dockerfile --target migrate -t munjigi-migrate .
+# prisma.config.ts의 loadEnvFile()은 .env가 없으면(.dockerignore) 조용히 넘어가고 DATABASE_URL을 환경 변수에서 읽는다.
+# migrate가 쓰는 schema engine은 pnpm-workspace.yaml onlyBuiltDependencies의 @prisma/engines postinstall이 install 때 받아 둔다.
+FROM build AS migrate
+WORKDIR /repo/apps/backend
+CMD ["pnpm", "run", "deploy"]
+
 FROM base AS runner
 ENV NODE_ENV=production
 WORKDIR /app
