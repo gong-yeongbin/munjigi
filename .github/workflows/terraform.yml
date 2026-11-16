@@ -1,13 +1,14 @@
-# infra/frontend의 Terraform. PR이면 plan을 댓글로, main이면 apply.
-# AWS 키 없이 OIDC로 bootstrap이 만든 역할(TERRAFORM_ROLE_ARN)을 assume한다. 포크 PR은 OIDC 토큰이 없어 돌지 않는다
+# infra/frontend·infra/backend의 Terraform. PR이면 plan을 스택별 댓글로, main이면 apply.
+# AWS 키 없이 OIDC로 bootstrap이 만든 B 역할(TERRAFORM_ROLE_ARN)을 assume한다. backend 스택은 그 역할이 다시 A 계정 역할을 assume한다(providers.tf).
+# 포크 PR은 OIDC 토큰이 없어 돌지 않는다. 경로가 infra/** 라 한 스택만 바꿔도 다른 스택 plan(no-op)이 같이 돈다
 name: terraform
 
 on:
   pull_request:
-    paths: ["infra/frontend/**", ".github/workflows/terraform.yml"]
+    paths: ["infra/**", ".github/workflows/terraform.yml"]
   push:
     branches: [main]
-    paths: ["infra/frontend/**", ".github/workflows/terraform.yml"]
+    paths: ["infra/**", ".github/workflows/terraform.yml"]
   workflow_dispatch:
 
 permissions:
@@ -15,19 +16,24 @@ permissions:
   contents: read
   pull-requests: write
 
-# apply가 겹치지 않게 한 번에 하나만
-concurrency:
-  group: terraform-frontend
-  cancel-in-progress: false
-
-defaults:
-  run:
-    working-directory: infra/frontend
-
 jobs:
   terraform:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        stack: [frontend, backend]
+    # 스택마다 apply가 겹치지 않게 한 번에 하나만. 스택끼리는 state가 달라 같이 돌아도 된다
+    concurrency:
+      group: terraform-${{ matrix.stack }}
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: infra/${{ matrix.stack }}
+    env:
+      # backend만 쓴다. 선언되지 않은 변수의 TF_VAR_는 Terraform이 무시해 frontend에는 영향 없다
+      TF_VAR_google_client_id: ${{ vars.GOOGLE_CLIENT_ID }}
     steps:
       - uses: actions/checkout@v4
 
@@ -60,14 +66,17 @@ jobs:
         uses: actions/github-script@v7
         env:
           PLAN_OUTCOME: ${{ steps.plan.outcome }}
+          STACK: ${{ matrix.stack }}
         with:
           script: |
             const fs = require('fs');
-            const raw = fs.readFileSync('infra/frontend/plan.txt', 'utf8');
+            const stack = process.env.STACK;
+            const raw = fs.readFileSync(`infra/${stack}/plan.txt`, 'utf8');
             const plan = raw.length > 60000 ? raw.slice(0, 60000) + '\n…(잘림)' : raw;
-            const body = `### terraform plan (infra/frontend) — ${process.env.PLAN_OUTCOME}\n\n<details><summary>보기</summary>\n\n\`\`\`\n${plan}\n\`\`\`\n\n</details>`;
+            const prefix = `### terraform plan (infra/${stack})`;
+            const body = `${prefix} — ${process.env.PLAN_OUTCOME}\n\n<details><summary>보기</summary>\n\n\`\`\`\n${plan}\n\`\`\`\n\n</details>`;
             const { data: comments } = await github.rest.issues.listComments({ ...context.repo, issue_number: context.issue.number });
-            const mine = comments.find((c) => c.user.type === 'Bot' && c.body.startsWith('### terraform plan (infra/frontend)'));
+            const mine = comments.find((c) => c.user.type === 'Bot' && c.body.startsWith(prefix));
             if (mine) await github.rest.issues.updateComment({ ...context.repo, comment_id: mine.id, body });
             else await github.rest.issues.createComment({ ...context.repo, issue_number: context.issue.number, body });
 
