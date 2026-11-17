@@ -1,8 +1,9 @@
 import { cn } from 'cn';
 import type { ReactNode } from 'react';
-import { Link, useLocation } from 'react-router';
-import { buttonVariants } from '@/components/ui/button';
-import { useLandingOnly } from '@/config';
+import { Link, useLocation, useNavigate } from 'react-router';
+import { clearToken, getToken } from '@/auth/token';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { useScope } from '@/config';
 
 // 상단 메뉴. 페이지가 생기면 여기 경로만 바꾼다
 const NAV = [
@@ -14,7 +15,14 @@ const NAV = [
 // 로그인 전 화면(랜딩·요금)의 공통 틀. 모래색 바탕, 워드마크 왼쪽, 글자 링크 오른쪽. 푸터는 맨 아래 한 줄
 export function PublicLayout({ children }: { children: ReactNode }) {
 	const { pathname } = useLocation();
-	const landingOnly = useLandingOnly();
+	const scope = useScope();
+	// 로그인만 열린 배포에서는 로그인한 사람도 랜딩에 머문다. 그때 상단에는 로그아웃만 두고, 로그아웃은 대시보드와 같이 /login으로
+	const navigate = useNavigate();
+	const loggedIn = scope === 'login' && getToken() !== null;
+	const logout = () => {
+		clearToken();
+		void navigate('/login', { replace: true });
+	};
 	return (
 		<div className="min-h-screen bg-sand text-primary">
 			<header className="flex items-center justify-between px-12 pt-7">
@@ -22,14 +30,19 @@ export function PublicLayout({ children }: { children: ReactNode }) {
 					munjigi
 				</Link>
 				<nav className="flex items-center gap-7 text-[15px]">
-					{!landingOnly &&
+					{/* 메뉴(개발자·문서·요금)는 전부 공개할 때만. 로그인·시작하기는 로그인이 열려 있으면 둔다 */}
+					{scope === 'all' &&
 						NAV.map((item) => (
-						<Link key={item.to} to={item.to} className={cn('underline-offset-4 hover:underline', pathname === item.to ? 'font-semibold' : 'text-cobalt-muted')}>
+							<Link key={item.to} to={item.to} className={cn('underline-offset-4 hover:underline', pathname === item.to ? 'font-semibold' : 'text-cobalt-muted')}>
 								{item.label}
 							</Link>
 						))}
-					{/* 랜딩만 공개하는 배포에서는 메뉴·로그인·시작하기를 아예 두지 않는다 */}
-					{!landingOnly && (
+					{loggedIn && (
+						<Button type="button" variant="outline" size="lg" onClick={logout}>
+							로그아웃
+						</Button>
+					)}
+					{scope !== 'landing' && !loggedIn && (
 						<>
 							<Link to="/login" className="text-cobalt-muted underline-offset-4 hover:underline">
 								로그인

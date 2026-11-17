@@ -3,7 +3,7 @@ import { type ReactNode, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router';
 import { getToken } from '@/auth/token';
 import { Faq } from '@/components/Faq';
-import { useLandingOnly } from '@/config';
+import { useScope } from '@/config';
 import { StatusTag } from '@/components/StatusTag';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,9 +13,9 @@ import { AttemptsFragment, EventsFragment, Panel, SOURCE_URL, SourceFragment } f
 // 방향 "제품이 직접 동작"(context-notes 2026-10-28): 설명 대신 실제 화면 조각이 일한다.
 // 첫 화면은 제목 + 코발트 무대 위의 이벤트 화면. 무대 왼쪽 위 모서리를 계단형으로 깎는다(이 페이지의 유일한 장식)
 export function LandingPage() {
-	const landingOnly = useLandingOnly();
-	// 이미 로그인돼 있으면 대시보드로. 랜딩만 공개한 배포에서는 /app이 다시 /로 오므로 보내지 않는다
-	if (getToken() && !landingOnly) return <Navigate to="/app" replace />;
+	const scope = useScope();
+	// 대시보드가 열려 있고 이미 로그인돼 있으면 거기로. 그 전에는 로그인한 사람도 랜딩에 머문다
+	if (getToken() && scope === 'all') return <Navigate to="/app" replace />;
 
 	return (
 		<PublicLayout>
@@ -31,8 +31,14 @@ export function LandingPage() {
 	);
 }
 
+// 시작 버튼이 "준비 중"인 경우. 랜딩만 공개했거나, 로그인은 됐지만 대시보드가 아직 안 열렸을 때
+function useWaiting() {
+	const scope = useScope();
+	return scope === 'landing' || (scope === 'login' && getToken() !== null);
+}
+
 function Hero() {
-	const landingOnly = useLandingOnly();
+	const landingOnly = useWaiting();
 	return (
 		<section className="relative min-h-[90svh] overflow-hidden">
 			<div className="max-w-[46%] px-12 pt-[110px]">
@@ -218,14 +224,14 @@ function Features() {
 	);
 }
 
-// 카드 없이 숫자 하나
+// 카드 없이 숫자 하나. 요금 페이지는 전부 공개할 때만 열리므로 그 전에는 버튼이 준비 중이다
 function Pricing() {
-	const landingOnly = useLandingOnly();
+	const landingOnly = useScope() !== 'all';
 	return (
 		<section className="grid min-h-[80svh] grid-cols-12 items-center gap-8 px-12 pt-[120px]">
 			<div className="col-span-4 self-start pt-6">
 				<h2 className="text-[32px] font-bold tracking-tight">0원으로 시작</h2>
-				<p className="mt-4 text-[17px] leading-relaxed text-cobalt-muted">카드 없이 바로 씁니다. 팀이 커지면 월 49,000원의 Team으로 올립니다. 포함량을 넘긴 만큼만 더 냅니다.</p>
+				<p className="mt-4 text-[17px] leading-relaxed text-cobalt-muted">카드 없이 바로 씁니다. 이벤트가 늘면 월 49,000원의 Team으로 올립니다. 포함량을 넘긴 만큼만 더 냅니다.</p>
 			</div>
 			<div className="col-span-7 col-start-6">
 				<p className="relative inline-block text-[clamp(120px,16vw,240px)] leading-[0.85] font-bold tracking-[-0.04em]">
@@ -255,7 +261,8 @@ function Pricing() {
 
 // 페이지 끝은 제품의 첫 화면이 이미 열려 있다. 입력한 이름은 로그인으로 넘긴다
 function Cta() {
-	const landingOnly = useLandingOnly();
+	const scope = useScope();
+	const landingOnly = useWaiting();
 	const navigate = useNavigate();
 	const [name, setName] = useState('shop');
 	return (
@@ -266,7 +273,9 @@ function Cta() {
 					<br />
 					시작합니다
 				</p>
-				<p className="mt-6 text-[17px] text-sand/80">{landingOnly ? '곧 열립니다. 열리면 구글 로그인 한 번이면 됩니다.' : '구글 로그인 한 번이면 됩니다. 카드는 필요 없습니다.'}</p>
+				<p className="mt-6 text-[17px] text-sand/80">
+					{scope === 'landing' ? '곧 열립니다. 열리면 구글 로그인 한 번이면 됩니다.' : landingOnly ? '로그인됐습니다. 대시보드가 열리면 이 계정으로 바로 씁니다.' : '구글 로그인 한 번이면 됩니다. 카드는 필요 없습니다.'}
+				</p>
 			</div>
 			<form
 				data-ui

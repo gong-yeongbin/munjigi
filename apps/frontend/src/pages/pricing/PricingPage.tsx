@@ -3,22 +3,22 @@ import { CheckIcon } from 'lucide-react';
 import { Link } from 'react-router';
 import { Faq } from '@/components/Faq';
 import { buttonVariants } from '@/components/ui/button';
-import { useLandingOnly } from '@/config';
+import { useScope } from '@/config';
 import { PublicLayout } from '@/layout/PublicLayout';
 
 // 값은 plan.md 결정 11과 백엔드 plan-limits.ts와 같다. 바꾸면 셋을 같이 바꾼다.
 // 초과 단가의 구간 할인(500만 건 이후)은 여기 안 적는다. 볼 사람이 거의 없다.
 // business는 team과 보존일만 달라 요금표에서 뺐다(2026-10-15). 차별화는 billing 때 정한다
 const PLANS = [
-	{ name: 'Free', price: '0원', rows: ['월 1,000 이벤트', '초과 시 거부', '멤버 1명', '프로젝트 1개', '소스·목적지 각 3개', '보존 3일'] },
-	{ name: 'Team', price: '49,000원', rows: ['월 10,000 이벤트', '초과 10만 건당 10,000원부터', '멤버 무제한', '프로젝트 무제한', '소스·목적지 무제한', '보존 7일'] },
+	{ name: 'Free', price: '0원', rows: ['월 1,000 이벤트', '초과 시 거부', '프로젝트 1개', '소스·목적지 각 3개', '보존 3일'] },
+	{ name: 'Team', price: '49,000원', rows: ['월 10,000 이벤트', '초과 10만 건당 10,000원부터', '프로젝트 무제한', '소스·목적지 무제한', '보존 7일'] },
 ];
 
 // 플랜과 무관하게 전부 들어 있는 것
 const INCLUDED = ['자동 재시도 무료', '서명 검증', '대시보드에서 재전송', '내부망 주소 차단'];
 
 export function PricingPage() {
-	const landingOnly = useLandingOnly();
+	const landingOnly = useScope() === 'landing';
 	return (
 		<PublicLayout>
 			<section className="px-12 pt-[96px]">

@@ -5,12 +5,15 @@ import { errorMessage } from '@/api/client';
 import { renderGoogleButton } from '@/auth/google';
 import { getToken, setToken } from '@/auth/token';
 import { Button } from '@/components/ui/button';
+import { useScope } from '@/config';
 
 // 가입과 로그인이 같은 버튼이다. 구글 계정을 고르면 ID 토큰을 백엔드에 넘겨 우리 JWT를 받는다.
 // VITE_GOOGLE_CLIENT_ID가 없는 로컬에서는 .env.local의 VITE_DEV_TOKEN(시드 유저)으로 들어가는 개발용 버튼
 export function LoginPage() {
 	// 렌더 때 읽는다(테스트가 바꿔 끼울 수 있게)
 	const CLIENT_ID = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined) || undefined;
+	// 대시보드가 열려 있으면(all) 거기로, 아니면 랜딩으로
+	const home = useScope() === 'all' ? '/app' : '/';
 	const navigate = useNavigate();
 	const slot = useRef<HTMLDivElement>(null);
 	const [error, setError] = useState<string | null>(null);
@@ -24,19 +27,19 @@ export function LoginPage() {
 			setError(null);
 			try {
 				setToken(await loginWithGoogle(idToken));
-				void navigate('/app', { replace: true });
+				void navigate(home, { replace: true });
 			} catch (e) {
 				setError(errorMessage(e));
 				setBusy(false);
 			}
 		}).catch((e: unknown) => setError(errorMessage(e)));
-	}, [loggedIn, navigate, CLIENT_ID]);
+	}, [loggedIn, navigate, CLIENT_ID, home]);
 
-	if (loggedIn) return <Navigate to="/app" replace />;
+	if (loggedIn) return <Navigate to={home} replace />;
 
 	const devLogin = () => {
 		setToken(import.meta.env.VITE_DEV_TOKEN || 'dev');
-		void navigate('/app', { replace: true });
+		void navigate(home, { replace: true });
 	};
 
 	return (
