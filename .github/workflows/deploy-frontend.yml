@@ -57,8 +57,10 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # 공개 범위(LANDING_ONLY)는 코드 상수라 빌드에 환경 변수가 없다
+      # 공개 범위(SCOPE)는 코드 상수다. 구글 클라이언트 ID(공개 값)만 변수에서 넣는다. 백엔드 GOOGLE_CLIENT_ID와 같은 값
       - run: pnpm --filter frontend build
+        env:
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
 
       - uses: aws-actions/configure-aws-credentials@v4
         with:
