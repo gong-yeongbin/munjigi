@@ -14,7 +14,7 @@ describe('SourcesPage', () => {
 	});
 
 	it('소스를 이름·받는 주소·서명 검증으로 보여주고 주소를 복사한다', async () => {
-		server.use(http.get('/api/orgs/1/projects/10/sources', () => HttpResponse.json({ data: [SOURCES[0], { ...SOURCES[0], id: 8, name: '깃허브', slug: 'zzz', signature_config: { header: 'x-hub-signature-256', prefix: 'sha256=' } }], next_cursor: null })));
+		server.use(http.get('/api/projects/10/sources', () => HttpResponse.json({ data: [SOURCES[0], { ...SOURCES[0], id: 8, name: '깃허브', slug: 'zzz', signature_config: { header: 'x-hub-signature-256', prefix: 'sha256=' } }], next_cursor: null })));
 		renderApp('/app/sources');
 		expect(await screen.findByText('토스 결제')).toBeDefined();
 		expect(screen.getByText('/in/abcdefghij0123456789')).toBeDefined();
@@ -29,11 +29,11 @@ describe('SourcesPage', () => {
 	it('새 소스: 서명 검증을 켜면 키·헤더가 필수이고, 만들면 상세가 열린다', async () => {
 		const posted: unknown[] = [];
 		server.use(
-			http.post('/api/orgs/1/projects/10/sources', async ({ request }) => {
+			http.post('/api/projects/10/sources', async ({ request }) => {
 				posted.push(await request.json());
 				return HttpResponse.json({ ...SOURCES[0], id: 9, name: '포트원', slug: 'newslug', signature_config: { header: 'webhook-signature' } }, { status: 201 });
 			}),
-			http.get('/api/orgs/1/projects/10/sources', () => HttpResponse.json({ data: posted.length ? [SOURCES[0], { ...SOURCES[0], id: 9, name: '포트원', slug: 'newslug', signature_config: { header: 'webhook-signature' } }] : SOURCES, next_cursor: null }))
+			http.get('/api/projects/10/sources', () => HttpResponse.json({ data: posted.length ? [SOURCES[0], { ...SOURCES[0], id: 9, name: '포트원', slug: 'newslug', signature_config: { header: 'webhook-signature' } }] : SOURCES, next_cursor: null }))
 		);
 		renderApp('/app/sources');
 		await screen.findByText('토스 결제');
@@ -61,12 +61,12 @@ describe('SourcesPage', () => {
 	it('상세: 서명을 끄고 저장하면 둘 다 null로 보낸다. 주소 새로 발급·삭제는 확인 뒤', async () => {
 		const patched: unknown[] = [];
 		server.use(
-			http.patch('/api/orgs/1/projects/10/sources/7', async ({ request }) => {
+			http.patch('/api/projects/10/sources/7', async ({ request }) => {
 				patched.push(await request.json());
 				return HttpResponse.json(SOURCES[0]);
 			}),
-			http.post('/api/orgs/1/projects/10/sources/7/rotate-slug', () => HttpResponse.json({ ...SOURCES[0], slug: 'rotated' })),
-			http.delete('/api/orgs/1/projects/10/sources/7', () => new HttpResponse(null, { status: 204 }))
+			http.post('/api/projects/10/sources/7/rotate-slug', () => HttpResponse.json({ ...SOURCES[0], slug: 'rotated' })),
+			http.delete('/api/projects/10/sources/7', () => new HttpResponse(null, { status: 204 }))
 		);
 		renderApp('/app/sources?id=7');
 		const u = user();
@@ -86,7 +86,7 @@ describe('SourcesPage', () => {
 	});
 
 	it('만들기가 실패하면 백엔드 메시지를 보여준다', async () => {
-		server.use(http.post('/api/orgs/1/projects/10/sources', () => HttpResponse.json({ code: 'plan_limit', message: '현재 플랜은 프로젝트마다 소스를 3개까지 만들 수 있습니다.' }, { status: 403 })));
+		server.use(http.post('/api/projects/10/sources', () => HttpResponse.json({ code: 'plan_limit', message: '현재 플랜은 프로젝트마다 소스를 3개까지 만들 수 있습니다.' }, { status: 403 })));
 		renderApp('/app/sources');
 		await screen.findByText('토스 결제');
 		const u = user();
@@ -100,13 +100,13 @@ describe('SourcesPage', () => {
 	it('서명이 켜진 소스를 고치면 앞 문자열·시각 헤더·허용 오차가 같이 간다. 실패는 메시지로', async () => {
 		const patched: unknown[] = [];
 		server.use(
-			http.get('/api/orgs/1/projects/10/sources', () => HttpResponse.json({ data: [{ ...SOURCES[0], id: 8, name: '깃허브', slug: 'zzz', signature_config: { header: 'x-hub-signature-256', prefix: 'sha256=' } }], next_cursor: null })),
-			http.patch('/api/orgs/1/projects/10/sources/8', async ({ request }) => {
+			http.get('/api/projects/10/sources', () => HttpResponse.json({ data: [{ ...SOURCES[0], id: 8, name: '깃허브', slug: 'zzz', signature_config: { header: 'x-hub-signature-256', prefix: 'sha256=' } }], next_cursor: null })),
+			http.patch('/api/projects/10/sources/8', async ({ request }) => {
 				patched.push(await request.json());
 				return patched.length === 1 ? HttpResponse.json({ code: 'validation_failed', message: '요청이 올바르지 않습니다.' }, { status: 400 }) : HttpResponse.json(SOURCES[0]);
 			}),
-			http.post('/api/orgs/1/projects/10/sources/8/rotate-slug', () => HttpResponse.json({ code: 'source_not_found', message: '소스가 없습니다.' }, { status: 404 })),
-			http.delete('/api/orgs/1/projects/10/sources/8', () => HttpResponse.json({ code: 'source_not_found', message: '지울 소스가 없습니다.' }, { status: 404 }))
+			http.post('/api/projects/10/sources/8/rotate-slug', () => HttpResponse.json({ code: 'source_not_found', message: '소스가 없습니다.' }, { status: 404 })),
+			http.delete('/api/projects/10/sources/8', () => HttpResponse.json({ code: 'source_not_found', message: '지울 소스가 없습니다.' }, { status: 404 }))
 		);
 		renderApp('/app/sources?id=8');
 		const u = user();

@@ -22,13 +22,12 @@ export function ConnectionsPage() {
 	const [params, setParams] = useSearchParams();
 	const [creating, setCreating] = useState(false);
 	const openId = params.get('id');
-	const orgId = current?.org.id ?? 0;
 	const projectId = current?.id ?? 0;
 	const enabled = current !== null;
 
-	const sources = useQuery({ queryKey: ['sources', orgId, projectId], queryFn: () => listSources(orgId, projectId), enabled });
-	const destinations = useQuery({ queryKey: ['destinations', orgId, projectId], queryFn: () => listDestinations(orgId, projectId), enabled });
-	const connections = useQuery({ queryKey: ['connections', orgId, projectId], queryFn: () => listConnections(orgId, projectId), enabled });
+	const sources = useQuery({ queryKey: ['sources', projectId], queryFn: () => listSources(projectId), enabled });
+	const destinations = useQuery({ queryKey: ['destinations', projectId], queryFn: () => listDestinations(projectId), enabled });
+	const connections = useQuery({ queryKey: ['connections', projectId], queryFn: () => listConnections(projectId), enabled });
 
 	const sourceName = (id: number) => sources.data?.find((s) => s.id === id)?.name ?? `#${id}`;
 	const destinationName = (id: number) => destinations.data?.find((d) => d.id === id)?.name ?? `#${id}`;
@@ -100,21 +99,21 @@ export function ConnectionsPage() {
 				</Table>
 			</div>
 
-			{selected && current && <ConnectionSheet key={selected.id} orgId={orgId} projectId={projectId} connection={selected} sourceName={sourceName} destinationName={destinationName} onClose={() => open(null)} />}
-			{current && <CreateDialog open={creating} onOpenChange={setCreating} orgId={orgId} projectId={projectId} sources={sources.data ?? []} destinations={destinations.data ?? []} />}
+			{selected && current && <ConnectionSheet key={selected.id} projectId={projectId} connection={selected} sourceName={sourceName} destinationName={destinationName} onClose={() => open(null)} />}
+			{current && <CreateDialog open={creating} onOpenChange={setCreating} projectId={projectId} sources={sources.data ?? []} destinations={destinations.data ?? []} />}
 		</div>
 	);
 }
 
 type Named = { id: number; name: string };
 
-function CreateDialog({ open, onOpenChange, orgId, projectId, sources, destinations }: { open: boolean; onOpenChange: (open: boolean) => void; orgId: number; projectId: number; sources: Named[]; destinations: Named[] }) {
+function CreateDialog({ open, onOpenChange, projectId, sources, destinations }: { open: boolean; onOpenChange: (open: boolean) => void; projectId: number; sources: Named[]; destinations: Named[] }) {
 	const client = useQueryClient();
 	const [sourceId, setSourceId] = useState<number | null>(null);
 	const [destinationId, setDestinationId] = useState<number | null>(null);
 	const [retry, setRetry] = useState<RetryRule>(DEFAULT_RETRY);
 	const create = useMutation({
-		mutationFn: () => createConnection(orgId, projectId, { source_id: sourceId!, destination_id: destinationId!, ...retry }),
+		mutationFn: () => createConnection(projectId, { source_id: sourceId!, destination_id: destinationId!, ...retry }),
 		onSuccess: async () => {
 			toast.success('연결했습니다. 이제 이 소스로 오는 웹훅이 목적지로 갑니다.');
 			onOpenChange(false);

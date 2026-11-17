@@ -49,12 +49,11 @@ export function AppShell() {
 	const [error, setError] = useState<string | null>(null);
 
 	const submit = async () => {
-		const orgId = project.current?.org.id ?? project.orgs[0]?.id;
-		if (!orgId || !name.trim()) return;
+		if (!name.trim()) return;
 		setSaving(true);
 		setError(null);
 		try {
-			await project.create(orgId, name.trim());
+			await project.create(name.trim());
 			setCreating(false);
 			setName('');
 		} catch (e) {
@@ -86,13 +85,12 @@ export function AppShell() {
 				<DropdownMenu>
 					<DropdownMenuTrigger
 						render={<button type="button" aria-label="내 계정" />}
-						className={cn('mt-auto flex h-10 w-14 items-center justify-center text-muted-foreground hover:text-foreground data-popup-open:text-foreground', ['/app/settings', '/app/org', '/app/usage', '/app/me'].some((p) => pathname.startsWith(p)) ? 'border-r-2 border-primary text-primary' : '')}
+						className={cn('mt-auto flex h-10 w-14 items-center justify-center text-muted-foreground hover:text-foreground data-popup-open:text-foreground', ['/app/settings', '/app/usage', '/app/me'].some((p) => pathname.startsWith(p)) ? 'border-r-2 border-primary text-primary' : '')}
 					>
 						<UserIcon className="size-[18px]" />
 					</DropdownMenuTrigger>
 					<DropdownMenuContent side="right" align="end">
 						<DropdownMenuItem onClick={() => void navigate('/app/settings')}>프로젝트 설정</DropdownMenuItem>
-						<DropdownMenuItem onClick={() => void navigate('/app/org')}>조직 설정</DropdownMenuItem>
 						<DropdownMenuItem onClick={() => void navigate('/app/usage')}>사용량</DropdownMenuItem>
 						<DropdownMenuSeparator />
 						<DropdownMenuItem onClick={() => void navigate('/app/me')}>내 정보</DropdownMenuItem>

@@ -24,7 +24,7 @@ describe('DestinationsPage', () => {
 	it('새 목적지: 주소 형식이 맞아야 만들 수 있고, 헤더는 이름이 있는 줄만 보낸다', async () => {
 		const posted: unknown[] = [];
 		server.use(
-			http.post('/api/orgs/1/projects/10/destinations', async ({ request }) => {
+			http.post('/api/projects/10/destinations', async ({ request }) => {
 				posted.push(await request.json());
 				return HttpResponse.json({ ...DESTINATIONS[0], id: 4, name: '주문 서버' }, { status: 201 });
 			})
@@ -55,12 +55,12 @@ describe('DestinationsPage', () => {
 	it('상세: 고쳐서 저장하고, 헤더 줄을 지우고, 삭제는 확인 뒤', async () => {
 		const patched: unknown[] = [];
 		server.use(
-			http.get('/api/orgs/1/projects/10/destinations', () => HttpResponse.json({ data: [{ ...DESTINATIONS[0], headers: { Authorization: '***' } }], next_cursor: null })),
-			http.patch('/api/orgs/1/projects/10/destinations/3', async ({ request }) => {
+			http.get('/api/projects/10/destinations', () => HttpResponse.json({ data: [{ ...DESTINATIONS[0], headers: { Authorization: '***' } }], next_cursor: null })),
+			http.patch('/api/projects/10/destinations/3', async ({ request }) => {
 				patched.push(await request.json());
 				return HttpResponse.json(DESTINATIONS[0]);
 			}),
-			http.delete('/api/orgs/1/projects/10/destinations/3', () => new HttpResponse(null, { status: 204 }))
+			http.delete('/api/projects/10/destinations/3', () => new HttpResponse(null, { status: 204 }))
 		);
 		renderApp('/app/destinations?id=3');
 		const u = user();
@@ -80,7 +80,7 @@ describe('DestinationsPage', () => {
 	});
 
 	it('목적지가 없으면 안내를 보여준다', async () => {
-		server.use(http.get('/api/orgs/1/projects/10/destinations', () => HttpResponse.json({ data: [], next_cursor: null })));
+		server.use(http.get('/api/projects/10/destinations', () => HttpResponse.json({ data: [], next_cursor: null })));
 		renderApp('/app/destinations');
 		expect(await screen.findByText(/목적지가 없습니다/)).toBeDefined();
 	});

@@ -1,8 +1,8 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createContext, type ReactNode, useContext, useState } from 'react';
-import { createProject, listOrgs, listProjects, type Org, type Project } from '@/api/projects';
+import { createProject, listProjects, type Project } from '@/api/projects';
 
-// 지금 보고 있는 프로젝트. 조직·프로젝트 목록을 한 번 읽고, 고른 프로젝트는 이 브라우저에 기억한다
+// 지금 보고 있는 프로젝트. 내 프로젝트 목록을 한 번 읽고, 고른 프로젝트는 이 브라우저에 기억한다
 const KEY = 'munjigi.project';
 const remembered = () => {
 	try {
@@ -13,12 +13,11 @@ const remembered = () => {
 };
 
 export type ProjectContext = {
-	orgs: Org[];
-	projects: (Project & { org: Org })[];
-	current: (Project & { org: Org }) | null;
+	projects: Project[];
+	current: Project | null;
 	loading: boolean;
 	select: (projectId: number) => void;
-	create: (orgId: number, name: string) => Promise<Project>;
+	create: (name: string) => Promise<Project>;
 };
 
 const Context = createContext<ProjectContext | null>(null);
@@ -27,16 +26,9 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 	const client = useQueryClient();
 	const [selected, setSelected] = useState<string | null>(remembered);
 
-	const query = useQuery({
-		queryKey: ['projects'],
-		queryFn: async () => {
-			const orgs = await listOrgs();
-			const projects = (await Promise.all(orgs.map(async (org) => (await listProjects(org.id)).map((p) => ({ ...p, org }))))).flat();
-			return { orgs, projects };
-		},
-	});
+	const query = useQuery({ queryKey: ['projects'], queryFn: listProjects });
 
-	const projects = query.data?.projects ?? [];
+	const projects = query.data ?? [];
 	const current = projects.find((p) => String(p.id) === selected) ?? projects[0] ?? null;
 
 	const select = (projectId: number) => {
@@ -47,14 +39,14 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
 			// 기억 못 해도 동작엔 지장 없다
 		}
 	};
-	const create = async (orgId: number, name: string) => {
-		const created = await createProject(orgId, name);
+	const create = async (name: string) => {
+		const created = await createProject(name);
 		await client.invalidateQueries({ queryKey: ['projects'] });
 		select(created.id);
 		return created;
 	};
 
-	return <Context.Provider value={{ orgs: query.data?.orgs ?? [], projects, current, loading: query.isPending, select, create }}>{children}</Context.Provider>;
+	return <Context.Provider value={{ projects, current, loading: query.isPending, select, create }}>{children}</Context.Provider>;
 }
 
 export function useProject(): ProjectContext {

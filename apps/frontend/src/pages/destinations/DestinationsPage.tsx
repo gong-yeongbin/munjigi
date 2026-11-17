@@ -21,13 +21,12 @@ export function DestinationsPage() {
 	const [creating, setCreating] = useState(false);
 	const client = useQueryClient();
 	const openId = params.get('id');
-	const orgId = current?.org.id ?? 0;
 	const projectId = current?.id ?? 0;
 	const enabled = current !== null;
 
-	const destinations = useQuery({ queryKey: ['destinations', orgId, projectId], queryFn: () => listDestinations(orgId, projectId), enabled });
+	const destinations = useQuery({ queryKey: ['destinations', projectId], queryFn: () => listDestinations(projectId), enabled });
 	const create = useMutation({
-		mutationFn: (body: DestinationBody) => createDestination(orgId, projectId, body),
+		mutationFn: (body: DestinationBody) => createDestination(projectId, body),
 		onSuccess: async () => {
 			toast.success('목적지를 만들었습니다. 연결 화면에서 소스와 이어 주세요.');
 			setCreating(false);
@@ -88,7 +87,7 @@ export function DestinationsPage() {
 				</Table>
 			</div>
 
-			{selected && current && <DestinationSheet key={selected.id} orgId={orgId} projectId={projectId} destination={selected} onClose={() => open(null)} />}
+			{selected && current && <DestinationSheet key={selected.id} projectId={projectId} destination={selected} onClose={() => open(null)} />}
 			<Dialog open={creating} onOpenChange={setCreating}>
 				<DialogContent className="sm:max-w-[560px]">
 					<DialogHeader>
@@ -111,13 +110,13 @@ export function DestinationsPage() {
 	);
 }
 
-function DestinationSheet({ orgId, projectId, destination, onClose }: { orgId: number; projectId: number; destination: Destination; onClose: () => void }) {
+function DestinationSheet({ projectId, destination, onClose }: { projectId: number; destination: Destination; onClose: () => void }) {
 	const client = useQueryClient();
 	const open = useDelayedOpen();
 	const [confirmDelete, setConfirmDelete] = useState(false);
 	const refresh = () => client.invalidateQueries({ queryKey: ['destinations'] });
 	const save = useMutation({
-		mutationFn: (body: DestinationBody) => updateDestination(orgId, projectId, destination.id, body),
+		mutationFn: (body: DestinationBody) => updateDestination(projectId, destination.id, body),
 		onSuccess: async () => {
 			toast.success('저장했습니다. 다음 전달부터 적용됩니다.');
 			await refresh();
@@ -125,7 +124,7 @@ function DestinationSheet({ orgId, projectId, destination, onClose }: { orgId: n
 		onError: (error) => toast.error(errorMessage(error)),
 	});
 	const remove = useMutation({
-		mutationFn: () => deleteDestination(orgId, projectId, destination.id),
+		mutationFn: () => deleteDestination(projectId, destination.id),
 		onSuccess: async () => {
 			toast.success('목적지를 지웠습니다. 남은 전달은 취소됩니다.');
 			onClose();

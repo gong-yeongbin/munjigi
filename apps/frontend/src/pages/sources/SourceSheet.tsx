@@ -11,16 +11,16 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { SourceForm } from './SourceForm';
 import { CopyButton } from './SourcesPage';
 
-type Props = { orgId: number; projectId: number; source: Source; onClose: () => void };
+type Props = { projectId: number; source: Source; onClose: () => void };
 
 // 소스 하나. 받는 주소(복사·새로 발급), 이름·서명 수정, 삭제
-export function SourceSheet({ orgId, projectId, source, onClose }: Props) {
+export function SourceSheet({ projectId, source, onClose }: Props) {
 	const client = useQueryClient();
 	const open = useDelayedOpen();
 	const [confirm, setConfirm] = useState<'rotate' | 'delete' | null>(null);
 	const refresh = () => client.invalidateQueries({ queryKey: ['sources'] });
 	const save = useMutation({
-		mutationFn: (body: SourceBody) => updateSource(orgId, projectId, source.id, body),
+		mutationFn: (body: SourceBody) => updateSource(projectId, source.id, body),
 		onSuccess: async () => {
 			toast.success('저장했습니다.');
 			await refresh();
@@ -28,7 +28,7 @@ export function SourceSheet({ orgId, projectId, source, onClose }: Props) {
 		onError: (error) => toast.error(errorMessage(error)),
 	});
 	const rotate = useMutation({
-		mutationFn: () => rotateSourceSlug(orgId, projectId, source.id),
+		mutationFn: () => rotateSourceSlug(projectId, source.id),
 		onSuccess: async () => {
 			toast.success('새 주소를 발급했습니다. 옛 주소는 바로 404입니다. 업체 설정을 바꾸세요.');
 			await refresh();
@@ -36,7 +36,7 @@ export function SourceSheet({ orgId, projectId, source, onClose }: Props) {
 		onError: (error) => toast.error(errorMessage(error)),
 	});
 	const remove = useMutation({
-		mutationFn: () => deleteSource(orgId, projectId, source.id),
+		mutationFn: () => deleteSource(projectId, source.id),
 		onSuccess: async () => {
 			toast.success('소스를 지웠습니다. 받은 이벤트는 "삭제된 소스"로 남습니다.');
 			onClose();

@@ -13,21 +13,21 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-type Props = { orgId: number; projectId: number; id: string; destinationName: (id: number | null) => string; onClose: () => void };
+type Props = { projectId: number; id: string; destinationName: (id: number | null) => string; onClose: () => void };
 
 // 전달 하나와 그 시도 기록. 다시 보내기는 시도 횟수를 이어 가고, 취소는 예정된 재시도를 멈춘다
-export function DeliverySheet({ orgId, projectId, id, destinationName, onClose }: Props) {
+export function DeliverySheet({ projectId, id, destinationName, onClose }: Props) {
 	const client = useQueryClient();
 	const open = useDelayedOpen();
 	const [confirmCancel, setConfirmCancel] = useState(false);
 	const [expanded, setExpanded] = useState<string | null>(null);
-	const query = useQuery({ queryKey: ['delivery', orgId, projectId, id], queryFn: () => getDelivery(orgId, projectId, id) });
+	const query = useQuery({ queryKey: ['delivery', projectId, id], queryFn: () => getDelivery(projectId, id) });
 	const refresh = async () => {
-		await client.invalidateQueries({ queryKey: ['delivery', orgId, projectId, id] });
+		await client.invalidateQueries({ queryKey: ['delivery', projectId, id] });
 		await client.invalidateQueries({ queryKey: ['deliveries'] });
 	};
 	const retry = useMutation({
-		mutationFn: () => retryDelivery(orgId, projectId, id),
+		mutationFn: () => retryDelivery(projectId, id),
 		onSuccess: async () => {
 			toast.success('다시 보냅니다. 시도 기록에 이어집니다.');
 			await refresh();
@@ -35,7 +35,7 @@ export function DeliverySheet({ orgId, projectId, id, destinationName, onClose }
 		onError: (error) => toast.error(errorMessage(error)),
 	});
 	const cancel = useMutation({
-		mutationFn: () => cancelDelivery(orgId, projectId, id),
+		mutationFn: () => cancelDelivery(projectId, id),
 		onSuccess: async () => {
 			toast.success('취소했습니다. 더 보내지 않습니다.');
 			await refresh();

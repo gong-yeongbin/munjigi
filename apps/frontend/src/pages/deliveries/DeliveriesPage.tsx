@@ -29,16 +29,15 @@ export function DeliveriesPage() {
 	const [bulkOpen, setBulkOpen] = useState(false);
 	const openId = params.get('id');
 
-	const orgId = current?.org.id ?? 0;
 	const projectId = current?.id ?? 0;
 	const enabled = current !== null;
 
-	const destinations = useQuery({ queryKey: ['destinations', orgId, projectId], queryFn: () => listDestinations(orgId, projectId), enabled });
+	const destinations = useQuery({ queryKey: ['destinations', projectId], queryFn: () => listDestinations(projectId), enabled });
 	const pages = useQuery({
-		queryKey: ['deliveries', orgId, projectId, filter, cursors],
+		queryKey: ['deliveries', projectId, filter, cursors],
 		queryFn: async () => {
-			const first = await listDeliveries(orgId, projectId, filter);
-			const rest = await Promise.all(cursors.map((cursor) => listDeliveries(orgId, projectId, { ...filter, cursor })));
+			const first = await listDeliveries(projectId, filter);
+			const rest = await Promise.all(cursors.map((cursor) => listDeliveries(projectId, { ...filter, cursor })));
 			return [first, ...rest];
 		},
 		enabled,
@@ -155,14 +154,14 @@ export function DeliveriesPage() {
 				</div>
 			)}
 
-			{openId && current && <DeliverySheet orgId={orgId} projectId={projectId} id={openId} destinationName={destinationName} onClose={() => open(null)} />}
-			{current && <BulkRetryDialog open={bulkOpen} onOpenChange={setBulkOpen} orgId={orgId} projectId={projectId} destinationItems={destinationItems.slice(1)} />}
+			{openId && current && <DeliverySheet projectId={projectId} id={openId} destinationName={destinationName} onClose={() => open(null)} />}
+			{current && <BulkRetryDialog open={bulkOpen} onOpenChange={setBulkOpen} projectId={projectId} destinationItems={destinationItems.slice(1)} />}
 		</div>
 	);
 }
 
 // 조건에 맞는 전달을 한꺼번에 pending으로 되돌린다. 상태는 필수
-function BulkRetryDialog({ open, onOpenChange, orgId, projectId, destinationItems }: { open: boolean; onOpenChange: (open: boolean) => void; orgId: number; projectId: number; destinationItems: { value: number | null; label: string }[] }) {
+function BulkRetryDialog({ open, onOpenChange, projectId, destinationItems }: { open: boolean; onOpenChange: (open: boolean) => void; projectId: number; destinationItems: { value: number | null; label: string }[] }) {
 	const client = useQueryClient();
 	const [status, setStatus] = useState<BulkRetryStatus>('dead');
 	const [destination, setDestination] = useState<number | null>(null);
@@ -170,7 +169,7 @@ function BulkRetryDialog({ open, onOpenChange, orgId, projectId, destinationItem
 	const [before, setBefore] = useState('');
 	const toIso = (value: string) => (value ? new Date(value).toISOString() : undefined);
 	const run = useMutation({
-		mutationFn: () => bulkRetry(orgId, projectId, { status, destination_id: destination ?? undefined, created_after: toIso(after), created_before: toIso(before) }),
+		mutationFn: () => bulkRetry(projectId, { status, destination_id: destination ?? undefined, created_after: toIso(after), created_before: toIso(before) }),
 		onSuccess: async ({ count }) => {
 			toast.success(`${count.toLocaleString()}건을 다시 보냅니다.`);
 			onOpenChange(false);

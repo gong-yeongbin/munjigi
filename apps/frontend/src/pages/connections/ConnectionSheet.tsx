@@ -9,17 +9,17 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { RetryFields } from './RetryFields';
 
-type Props = { orgId: number; projectId: number; connection: Connection; sourceName: (id: number) => string; destinationName: (id: number) => string; onClose: () => void };
+type Props = { projectId: number; connection: Connection; sourceName: (id: number) => string; destinationName: (id: number) => string; onClose: () => void };
 
 // 연결 하나. 재시도 설정을 고치고, 일시 정지(보류)·재개, 삭제한다
-export function ConnectionSheet({ orgId, projectId, connection, sourceName, destinationName, onClose }: Props) {
+export function ConnectionSheet({ projectId, connection, sourceName, destinationName, onClose }: Props) {
 	const client = useQueryClient();
 	const open = useDelayedOpen();
 	const [retry, setRetry] = useState<RetryRule>({ retry_strategy: connection.retry_strategy, retry_interval_ms: connection.retry_interval_ms, retry_count: connection.retry_count });
 	const [confirmDelete, setConfirmDelete] = useState(false);
 	const refresh = () => client.invalidateQueries({ queryKey: ['connections'] });
 	const save = useMutation({
-		mutationFn: () => updateConnection(orgId, projectId, connection.id, retry),
+		mutationFn: () => updateConnection(projectId, connection.id, retry),
 		onSuccess: async () => {
 			toast.success('재시도 설정을 저장했습니다. 다음 시도부터 적용됩니다.');
 			await refresh();
@@ -28,7 +28,7 @@ export function ConnectionSheet({ orgId, projectId, connection, sourceName, dest
 	});
 	const paused = connection.paused_at !== null;
 	const pause = useMutation({
-		mutationFn: () => pauseConnection(orgId, projectId, connection.id, !paused),
+		mutationFn: () => pauseConnection(projectId, connection.id, !paused),
 		onSuccess: async () => {
 			toast.success(paused ? '재개했습니다. 보류해 둔 전달부터 다시 보냅니다.' : '일시 정지했습니다. 들어오는 웹훅은 보류됩니다.');
 			await refresh();
@@ -36,7 +36,7 @@ export function ConnectionSheet({ orgId, projectId, connection, sourceName, dest
 		onError: (error) => toast.error(errorMessage(error)),
 	});
 	const remove = useMutation({
-		mutationFn: () => deleteConnection(orgId, projectId, connection.id),
+		mutationFn: () => deleteConnection(projectId, connection.id),
 		onSuccess: async () => {
 			toast.success('연결을 지웠습니다. 남은 전달은 취소됩니다.');
 			onClose();

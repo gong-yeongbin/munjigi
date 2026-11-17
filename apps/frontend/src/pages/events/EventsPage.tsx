@@ -23,16 +23,15 @@ export function EventsPage() {
 	const openId = params.get('id');
 	const view = params.get('view') === 'rejected' ? 'rejected' : 'received';
 
-	const orgId = current?.org.id ?? 0;
 	const projectId = current?.id ?? 0;
 	const enabled = current !== null;
 
-	const sources = useQuery({ queryKey: ['sources', orgId, projectId], queryFn: () => listSources(orgId, projectId), enabled });
+	const sources = useQuery({ queryKey: ['sources', projectId], queryFn: () => listSources(projectId), enabled });
 	const pages = useQuery({
-		queryKey: ['events', orgId, projectId, filter, cursors],
+		queryKey: ['events', projectId, filter, cursors],
 		queryFn: async () => {
-			const first = await listEvents(orgId, projectId, filter);
-			const rest = await Promise.all(cursors.map((cursor) => listEvents(orgId, projectId, { ...filter, cursor })));
+			const first = await listEvents(projectId, filter);
+			const rest = await Promise.all(cursors.map((cursor) => listEvents(projectId, { ...filter, cursor })));
 			return [first, ...rest];
 		},
 		enabled,
@@ -73,7 +72,7 @@ export function EventsPage() {
 				</TabsList>
 			</Tabs>
 
-			{view === 'rejected' && current && <RejectedTable orgId={orgId} projectId={projectId} sourceOptions={sourceOptions} sourceName={sourceName} />}
+			{view === 'rejected' && current && <RejectedTable projectId={projectId} sourceOptions={sourceOptions} sourceName={sourceName} />}
 			{view === 'received' && (
 				<>
 					<div className="mt-5 flex flex-wrap items-center gap-2">
@@ -130,7 +129,7 @@ export function EventsPage() {
 						</div>
 					)}
 
-					{openId && current && <EventSheet orgId={orgId} projectId={projectId} id={openId} sourceName={sourceName} onClose={() => open(null)} />}
+					{openId && current && <EventSheet projectId={projectId} id={openId} sourceName={sourceName} onClose={() => open(null)} />}
 				</>
 			)}
 		</div>

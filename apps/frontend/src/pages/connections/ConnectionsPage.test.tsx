@@ -30,7 +30,7 @@ describe('ConnectionsPage', () => {
 	it('새 연결: 소스·목적지를 고르고 연결하면 목록이 갱신된다. 같은 짝이면 409 메시지', async () => {
 		let created = 0;
 		server.use(
-			http.post('/api/orgs/1/projects/10/connections', async ({ request }) => {
+			http.post('/api/projects/10/connections', async ({ request }) => {
 				const body = (await request.json()) as { source_id: number; destination_id: number; retry_count: number };
 				if (created++ === 0) return HttpResponse.json({ code: 'connection_conflict', message: '이미 이어진 소스와 목적지입니다.' }, { status: 409 });
 				return HttpResponse.json({ id: 3, ...body, retry_strategy: 'exponential', retry_interval_ms: 300000, paused_at: null, created_at: '2026-10-16T00:00:00.000Z', updated_at: '2026-10-16T00:00:00.000Z' }, { status: 201 });
@@ -59,7 +59,7 @@ describe('ConnectionsPage', () => {
 	it('행을 누르면 재시도를 고쳐 저장하고, 일시 정지·재개한다', async () => {
 		const patched: unknown[] = [];
 		server.use(
-			http.patch('/api/orgs/1/projects/10/connections/1', async ({ request }) => {
+			http.patch('/api/projects/10/connections/1', async ({ request }) => {
 				patched.push(await request.json());
 				return HttpResponse.json({});
 			})
@@ -95,7 +95,7 @@ describe('ConnectionsPage', () => {
 	});
 
 	it('연결이 없으면 소스·목적지로 가는 안내를 보여준다', async () => {
-		server.use(http.get('/api/orgs/1/projects/10/connections', () => HttpResponse.json({ data: [], next_cursor: null })));
+		server.use(http.get('/api/projects/10/connections', () => HttpResponse.json({ data: [], next_cursor: null })));
 		renderApp('/app/connections');
 		expect(await screen.findByText(/연결이 없습니다/)).toBeDefined();
 		// 레일에도 '소스' 링크가 있어 표 안의 것만 본다
@@ -104,9 +104,9 @@ describe('ConnectionsPage', () => {
 
 	it('저장·일시 정지·삭제가 실패하면 백엔드 메시지를 보여준다', async () => {
 		server.use(
-			http.patch('/api/orgs/1/projects/10/connections/1', () => HttpResponse.json({ code: 'validation_failed', message: '간격이 너무 짧습니다.' }, { status: 400 })),
-			http.post('/api/orgs/1/projects/10/connections/1/pause', () => HttpResponse.json({ code: 'connection_not_found', message: '연결이 없습니다.' }, { status: 404 })),
-			http.delete('/api/orgs/1/projects/10/connections/1', () => HttpResponse.json({ code: 'connection_not_found', message: '지울 연결이 없습니다.' }, { status: 404 }))
+			http.patch('/api/projects/10/connections/1', () => HttpResponse.json({ code: 'validation_failed', message: '간격이 너무 짧습니다.' }, { status: 400 })),
+			http.post('/api/projects/10/connections/1/pause', () => HttpResponse.json({ code: 'connection_not_found', message: '연결이 없습니다.' }, { status: 404 })),
+			http.delete('/api/projects/10/connections/1', () => HttpResponse.json({ code: 'connection_not_found', message: '지울 연결이 없습니다.' }, { status: 404 }))
 		);
 		renderApp('/app/connections?id=1');
 		const u = user();
@@ -122,8 +122,8 @@ describe('ConnectionsPage', () => {
 
 	it('소스·목적지가 없으면 새 연결 창이 안내만 보여준다', async () => {
 		server.use(
-			http.get('/api/orgs/1/projects/10/sources', () => HttpResponse.json({ data: [], next_cursor: null })),
-			http.get('/api/orgs/1/projects/10/destinations', () => HttpResponse.json({ data: [], next_cursor: null }))
+			http.get('/api/projects/10/sources', () => HttpResponse.json({ data: [], next_cursor: null })),
+			http.get('/api/projects/10/destinations', () => HttpResponse.json({ data: [], next_cursor: null }))
 		);
 		renderApp('/app/connections');
 		expect((await screen.findAllByText('#7')).length).toBe(2);

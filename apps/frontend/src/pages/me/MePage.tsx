@@ -1,12 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 import { errorMessage } from '@/api/client';
-import { getMe } from '@/api/orgs';
+import { getMe } from '@/api/users';
 import { clearToken } from '@/auth/token';
 import { formatTime } from '@/components/Time';
 import { Button } from '@/components/ui/button';
 
-// 로그인한 내 계정. 구글에서 받은 이름·이메일이라 여기서 바꾸지 않는다
+const PLAN_LABEL = { free: 'Free', team: 'Team', business: 'Business' } as const;
+
+// 로그인한 내 계정. 구글에서 받은 이름·이메일이라 여기서 바꾸지 않는다. 플랜은 user에 붙는다
 export function MePage() {
 	const navigate = useNavigate();
 	const me = useQuery({ queryKey: ['me'], queryFn: getMe });
@@ -24,6 +26,8 @@ export function MePage() {
 					<dd>{me.data.name}</dd>
 					<dt className="text-muted-foreground">이메일</dt>
 					<dd>{me.data.email}</dd>
+					<dt className="text-muted-foreground">플랜</dt>
+					<dd>{PLAN_LABEL[me.data.plan]}</dd>
 					<dt className="text-muted-foreground">가입</dt>
 					<dd>{formatTime(me.data.created_at)}</dd>
 					<dt className="text-muted-foreground">로그인</dt>

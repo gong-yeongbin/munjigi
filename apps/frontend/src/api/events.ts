@@ -36,10 +36,10 @@ export type Event = {
 export type EventDetail = Event & { deliveries: Delivery[] };
 export type EventFilter = { source_id?: number; received_after?: string; received_before?: string; cursor?: string };
 
-const base = (orgId: number, projectId: number) => `/orgs/${orgId}/projects/${projectId}`;
+const base = (projectId: number) => `/projects/${projectId}`;
 
-export const listEvents = async (orgId: number, projectId: number, filter: EventFilter) => (await api.get<Page<Event>>(`${base(orgId, projectId)}/events`, { params: { limit: 50, ...filter } })).data;
-export const getEvent = async (orgId: number, projectId: number, id: string) => (await api.get<EventDetail>(`${base(orgId, projectId)}/events/${id}`)).data;
+export const listEvents = async (projectId: number, filter: EventFilter) => (await api.get<Page<Event>>(`${base(projectId)}/events`, { params: { limit: 50, ...filter } })).data;
+export const getEvent = async (projectId: number, id: string) => (await api.get<EventDetail>(`${base(projectId)}/events/${id}`)).data;
 // 본문은 받은 바이트 그대로. 글자로 보여준다
-export const getEventBody = async (orgId: number, projectId: number, id: string) => (await api.get<string>(`${base(orgId, projectId)}/events/${id}/body`, { responseType: 'text', transformResponse: (v: string) => v })).data;
-export const replayEvent = async (orgId: number, projectId: number, id: string) => (await api.post<Event>(`${base(orgId, projectId)}/events/${id}/replay`)).data;
+export const getEventBody = async (projectId: number, id: string) => (await api.get<string>(`${base(projectId)}/events/${id}/body`, { responseType: 'text', transformResponse: (v: string) => v })).data;
+export const replayEvent = async (projectId: number, id: string) => (await api.post<Event>(`${base(projectId)}/events/${id}/replay`)).data;

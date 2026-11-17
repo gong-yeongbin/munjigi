@@ -27,11 +27,11 @@ export const TRIGGER_LABEL: Record<AttemptTrigger, string> = {
 	unpause: '재개',
 };
 
-const base = (orgId: number, projectId: number) => `/orgs/${orgId}/projects/${projectId}/deliveries`;
+const base = (projectId: number) => `/projects/${projectId}/deliveries`;
 
-export const listDeliveries = async (orgId: number, projectId: number, filter: DeliveryFilter) => (await api.get<Page<Delivery>>(base(orgId, projectId), { params: { limit: 50, ...filter } })).data;
-export const getDelivery = async (orgId: number, projectId: number, id: string) => (await api.get<DeliveryDetail>(`${base(orgId, projectId)}/${id}`)).data;
-export const retryDelivery = async (orgId: number, projectId: number, id: string) => (await api.post<Delivery>(`${base(orgId, projectId)}/${id}/retry`)).data;
-export const cancelDelivery = async (orgId: number, projectId: number, id: string) => (await api.post<Delivery>(`${base(orgId, projectId)}/${id}/cancel`)).data;
+export const listDeliveries = async (projectId: number, filter: DeliveryFilter) => (await api.get<Page<Delivery>>(base(projectId), { params: { limit: 50, ...filter } })).data;
+export const getDelivery = async (projectId: number, id: string) => (await api.get<DeliveryDetail>(`${base(projectId)}/${id}`)).data;
+export const retryDelivery = async (projectId: number, id: string) => (await api.post<Delivery>(`${base(projectId)}/${id}/retry`)).data;
+export const cancelDelivery = async (projectId: number, id: string) => (await api.post<Delivery>(`${base(projectId)}/${id}/cancel`)).data;
 // 조건에 맞는 것을 한 번에 최대 1,000건 되돌린다. 돌린 수를 준다
-export const bulkRetry = async (orgId: number, projectId: number, body: BulkRetryBody) => (await api.post<{ count: number }>(`${base(orgId, projectId)}/retry`, body)).data;
+export const bulkRetry = async (projectId: number, body: BulkRetryBody) => (await api.post<{ count: number }>(`${base(projectId)}/retry`, body)).data;

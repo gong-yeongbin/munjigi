@@ -47,7 +47,7 @@ describe('EventsPage', () => {
 		// 시각 필터는 ISO로 바뀌어 요청에 실린다
 		const seen: string[] = [];
 		server.use(
-			http.get('/api/orgs/1/projects/10/events', ({ request }) => {
+			http.get('/api/projects/10/events', ({ request }) => {
 				seen.push(new URL(request.url).searchParams.get('received_after') ?? '');
 				return HttpResponse.json({ data: [], next_cursor: null });
 			})
@@ -78,21 +78,21 @@ describe('EventsPage', () => {
 	});
 
 	it('URL에 id가 있으면 바로 상세가 열린다. 상세 조회가 실패하면 오류를 보여준다', async () => {
-		server.use(http.get('/api/orgs/1/projects/10/events/121', () => HttpResponse.json({ code: 'event_not_found', message: '이벤트가 없습니다.' }, { status: 404 })));
+		server.use(http.get('/api/projects/10/events/121', () => HttpResponse.json({ code: 'event_not_found', message: '이벤트가 없습니다.' }, { status: 404 })));
 		renderApp('/app/events?id=121');
 		expect(await screen.findByText('이벤트가 없습니다.')).toBeDefined();
 	});
 
 	it('프로젝트가 없으면 안내만 보여준다', async () => {
-		server.use(http.get('/api/orgs/1/projects', () => HttpResponse.json({ data: [], next_cursor: null })));
+		server.use(http.get('/api/projects', () => HttpResponse.json({ data: [], next_cursor: null })));
 		renderApp('/app/events');
 		expect(await screen.findByText('프로젝트를 먼저 만드세요.')).toBeDefined();
 	});
 
 	it('리플레이가 실패하면 백엔드 메시지를 보여준다. 본문이 비면 (비어 있음)', async () => {
 		server.use(
-			http.post('/api/orgs/1/projects/10/events/121/replay', () => HttpResponse.json({ code: 'no_connection', message: '연결된 목적지가 없습니다.' }, { status: 409 })),
-			http.get('/api/orgs/1/projects/10/events/121/body', () => new HttpResponse(''))
+			http.post('/api/projects/10/events/121/replay', () => HttpResponse.json({ code: 'no_connection', message: '연결된 목적지가 없습니다.' }, { status: 409 })),
+			http.get('/api/projects/10/events/121/body', () => new HttpResponse(''))
 		);
 		renderApp('/app/events?id=121');
 		const u = user();
@@ -106,7 +106,7 @@ describe('EventsPage', () => {
 	});
 
 	it('소스 목록에 없는 소스 id는 #id로, 닫기를 누르면 상세가 닫힌다', async () => {
-		server.use(http.get('/api/orgs/1/projects/10/events', () => HttpResponse.json({ data: [{ ...EVENTS[0], source_id: 99 }], next_cursor: null })));
+		server.use(http.get('/api/projects/10/events', () => HttpResponse.json({ data: [{ ...EVENTS[0], source_id: 99 }], next_cursor: null })));
 		renderApp('/app/events?id=121');
 		expect(await screen.findByText('#99')).toBeDefined();
 		const sheet = await screen.findByRole('dialog');
@@ -134,10 +134,10 @@ describe('EventsPage', () => {
 	});
 
 	it('전달이 없으면 안내 행, 응답 코드가 없으면 오류 문자열을 보여준다', async () => {
-		server.use(http.get('/api/orgs/1/projects/10/events/121', () => HttpResponse.json({ ...EVENTS[0], deliveries: [] })));
+		server.use(http.get('/api/projects/10/events/121', () => HttpResponse.json({ ...EVENTS[0], deliveries: [] })));
 		renderApp('/app/events?id=121');
 		expect(await screen.findByText('전달이 없습니다')).toBeDefined();
-		server.use(http.get('/api/orgs/1/projects/10/events/121', () => HttpResponse.json({ ...EVENTS[0], deliveries: [{ ...DETAIL.deliveries[0], last_status_code: null, last_error: 'ECONNREFUSED', next_attempt_at: null }] })));
+		server.use(http.get('/api/projects/10/events/121', () => HttpResponse.json({ ...EVENTS[0], deliveries: [{ ...DETAIL.deliveries[0], last_status_code: null, last_error: 'ECONNREFUSED', next_attempt_at: null }] })));
 		renderApp('/app/events?id=121');
 		expect(await screen.findByText('ECONNREFUSED')).toBeDefined();
 	});
@@ -162,7 +162,7 @@ describe('EventsPage', () => {
 	});
 
 	it('헤더 값이 여러 개면 쉼표로 잇고, 소스가 없는 이벤트는 삭제된 소스로 보여준다', async () => {
-		server.use(http.get('/api/orgs/1/projects/10/events/121', () => HttpResponse.json({ ...DETAIL, source_id: null, headers: { 'x-multi': ['a', 'b'] } })));
+		server.use(http.get('/api/projects/10/events/121', () => HttpResponse.json({ ...DETAIL, source_id: null, headers: { 'x-multi': ['a', 'b'] } })));
 		renderApp('/app/events?id=121');
 		const sheet = await screen.findByRole('dialog');
 		await within(sheet).findByText('이벤트 #121');

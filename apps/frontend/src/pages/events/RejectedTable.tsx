@@ -7,20 +7,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { SourceSelect } from './EventsPage';
 
-type Props = { orgId: number; projectId: number; sourceOptions: { value: number; label: string }[] | undefined; sourceName: (id: number | null) => string };
+type Props = { projectId: number; sourceOptions: { value: number; label: string }[] | undefined; sourceName: (id: number | null) => string };
 
 const REASONS = [{ value: null as RejectionReason | null, label: '모든 사유' }, ...Object.entries(REASON_LABEL).map(([value, label]) => ({ value: value as RejectionReason, label }))];
 
 // 인그레스가 거부한 요청. "왜 안 들어오지" 확인용. 행의 "헤더"를 누르면 받은 헤더가 펼쳐진다
-export function RejectedTable({ orgId, projectId, sourceOptions, sourceName }: Props) {
+export function RejectedTable({ projectId, sourceOptions, sourceName }: Props) {
 	const [filter, setFilter] = useState<RejectedFilter>({});
 	const [cursors, setCursors] = useState<string[]>([]);
 	const [expanded, setExpanded] = useState<string | null>(null);
 	const pages = useQuery({
-		queryKey: ['rejected', orgId, projectId, filter, cursors],
+		queryKey: ['rejected', projectId, filter, cursors],
 		queryFn: async () => {
-			const first = await listRejected(orgId, projectId, filter);
-			const rest = await Promise.all(cursors.map((cursor) => listRejected(orgId, projectId, { ...filter, cursor })));
+			const first = await listRejected(projectId, filter);
+			const rest = await Promise.all(cursors.map((cursor) => listRejected(projectId, { ...filter, cursor })));
 			return [first, ...rest];
 		},
 		placeholderData: (previous) => previous,

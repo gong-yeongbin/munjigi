@@ -46,7 +46,7 @@ describe('DeliveriesPage', () => {
 	it('?event_id=가 있으면 그 이벤트의 전달만 요청하고, 칩을 누르면 푼다', async () => {
 		const seen: (string | null)[] = [];
 		server.use(
-			http.get('/api/orgs/1/projects/10/deliveries', ({ request }) => {
+			http.get('/api/projects/10/deliveries', ({ request }) => {
 				seen.push(new URL(request.url).searchParams.get('event_id'));
 				return HttpResponse.json({ data: [], next_cursor: null });
 			})
@@ -86,8 +86,8 @@ describe('DeliveriesPage', () => {
 
 	it('끝난 것은 취소가 막힌다. 409는 메시지로', async () => {
 		server.use(
-			http.get('/api/orgs/1/projects/10/deliveries/900', () => HttpResponse.json({ ...DELIVERY_DETAIL, status: 'succeeded' })),
-			http.post('/api/orgs/1/projects/10/deliveries/900/retry', () => HttpResponse.json({ code: 'delivery_pending', message: '처리 중입니다.' }, { status: 409 }))
+			http.get('/api/projects/10/deliveries/900', () => HttpResponse.json({ ...DELIVERY_DETAIL, status: 'succeeded' })),
+			http.post('/api/projects/10/deliveries/900/retry', () => HttpResponse.json({ code: 'delivery_pending', message: '처리 중입니다.' }, { status: 409 }))
 		);
 		renderApp('/app/deliveries?id=900');
 		const sheet = await screen.findByRole('dialog');
@@ -98,7 +98,7 @@ describe('DeliveriesPage', () => {
 	});
 
 	it('처리 중(pending)이면 다시 보내기가 막히고, 시도가 없으면 안내 행', async () => {
-		server.use(http.get('/api/orgs/1/projects/10/deliveries/900', () => HttpResponse.json({ ...DELIVERY_DETAIL, status: 'pending', attempts: [] })));
+		server.use(http.get('/api/projects/10/deliveries/900', () => HttpResponse.json({ ...DELIVERY_DETAIL, status: 'pending', attempts: [] })));
 		renderApp('/app/deliveries?id=900');
 		const sheet = await screen.findByRole('dialog');
 		expect(await within(sheet).findByText('아직 보내지 않았습니다')).toBeDefined();
@@ -106,7 +106,7 @@ describe('DeliveriesPage', () => {
 	});
 
 	it('상세 조회가 실패하면 오류를 보여준다', async () => {
-		server.use(http.get('/api/orgs/1/projects/10/deliveries/900', () => HttpResponse.json({ code: 'delivery_not_found', message: '전달이 없습니다.' }, { status: 404 })));
+		server.use(http.get('/api/projects/10/deliveries/900', () => HttpResponse.json({ code: 'delivery_not_found', message: '전달이 없습니다.' }, { status: 404 })));
 		renderApp('/app/deliveries?id=900');
 		expect(await screen.findByText('전달이 없습니다.')).toBeDefined();
 	});
@@ -125,7 +125,7 @@ describe('DeliveriesPage', () => {
 	});
 
 	it('프로젝트가 없으면 안내만 보여준다', async () => {
-		server.use(http.get('/api/orgs/1/projects', () => HttpResponse.json({ data: [], next_cursor: null })));
+		server.use(http.get('/api/projects', () => HttpResponse.json({ data: [], next_cursor: null })));
 		renderApp('/app/deliveries');
 		expect(await screen.findByText('프로젝트를 먼저 만드세요.')).toBeDefined();
 	});
@@ -133,8 +133,8 @@ describe('DeliveriesPage', () => {
 	it('취소가 실패하면 메시지, 일괄 재시도는 목적지·기간을 같이 보내고 실패도 메시지', async () => {
 		const bodies: unknown[] = [];
 		server.use(
-			http.post('/api/orgs/1/projects/10/deliveries/900/cancel', () => HttpResponse.json({ code: 'delivery_closed', message: '이미 끝났습니다.' }, { status: 409 })),
-			http.post('/api/orgs/1/projects/10/deliveries/retry', async ({ request }) => {
+			http.post('/api/projects/10/deliveries/900/cancel', () => HttpResponse.json({ code: 'delivery_closed', message: '이미 끝났습니다.' }, { status: 409 })),
+			http.post('/api/projects/10/deliveries/retry', async ({ request }) => {
 				bodies.push(await request.json());
 				return HttpResponse.json({ code: 'validation_failed', message: '기간이 올바르지 않습니다.' }, { status: 400 });
 			})

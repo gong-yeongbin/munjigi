@@ -2,20 +2,16 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { errorMessage } from '@/api/client';
 import { getUsage } from '@/api/usage';
-import { useProject } from '@/auth/project';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const PLAN_LABEL = { free: 'Free', team: 'Team', business: 'Business' } as const;
 // '202610' → '2026년 10월'
 const monthLabel = (period: string) => `${period.slice(0, 4)}년 ${Number(period.slice(4))}월`;
 
-// 이번 달 조직 사용량. 숫자는 타일이 아니라 글자로 크게. 프로젝트별 수는 조회용
+// 이번 달 내 사용량. 숫자는 타일이 아니라 글자로 크게. 프로젝트별 수는 조회용
 export function UsagePage() {
-	const { current, orgs } = useProject();
-	const org = current?.org ?? orgs[0] ?? null;
-	const usage = useQuery({ queryKey: ['usage', org?.id], queryFn: () => getUsage(org!.id), enabled: org !== null });
+	const usage = useQuery({ queryKey: ['usage'], queryFn: getUsage });
 
-	if (!org) return <p className="pt-4 text-muted-foreground">조직이 없습니다.</p>;
 	const u = usage.data;
 	const ratio = u ? Math.min(u.used / u.included, 1) : 0;
 	const over = u ? u.used > u.included : false;
@@ -33,7 +29,7 @@ export function UsagePage() {
 				<>
 					<section className="mt-6 rounded-lg bg-card p-5">
 						<p className="text-sm text-muted-foreground">
-							{org.name} · {PLAN_LABEL[u.plan]}
+							{PLAN_LABEL[u.plan]} 플랜
 						</p>
 						<p className="mt-2 text-[40px] leading-none font-medium tracking-tight">
 							{u.used.toLocaleString()}

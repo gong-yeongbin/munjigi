@@ -40,13 +40,12 @@ export function SourcesPage() {
 	const [creating, setCreating] = useState(false);
 	const client = useQueryClient();
 	const openId = params.get('id');
-	const orgId = current?.org.id ?? 0;
 	const projectId = current?.id ?? 0;
 	const enabled = current !== null;
 
-	const sources = useQuery({ queryKey: ['sources', orgId, projectId], queryFn: () => listSources(orgId, projectId), enabled });
+	const sources = useQuery({ queryKey: ['sources', projectId], queryFn: () => listSources(projectId), enabled });
 	const create = useMutation({
-		mutationFn: (body: SourceBody) => createSource(orgId, projectId, body),
+		mutationFn: (body: SourceBody) => createSource(projectId, body),
 		onSuccess: async (created) => {
 			toast.success(`소스를 만들었습니다. 받는 주소를 업체 설정에 넣으세요.`);
 			setCreating(false);
@@ -109,7 +108,7 @@ export function SourcesPage() {
 				</Table>
 			</div>
 
-			{selected && current && <SourceSheet key={selected.id} orgId={orgId} projectId={projectId} source={selected} onClose={() => open(null)} />}
+			{selected && current && <SourceSheet key={selected.id} projectId={projectId} source={selected} onClose={() => open(null)} />}
 			<Dialog open={creating} onOpenChange={setCreating}>
 				<DialogContent className="sm:max-w-[560px]">
 					<DialogHeader>

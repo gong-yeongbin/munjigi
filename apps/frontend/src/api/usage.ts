@@ -10,4 +10,4 @@ export type Usage = {
 	projects: { project_id: number; name: string; event_count: number }[];
 };
 
-export const getUsage = async (orgId: number) => (await api.get<Usage>(`/orgs/${orgId}/usage`)).data;
+export const getUsage = async () => (await api.get<Usage>('/users/me/usage')).data;

@@ -58,7 +58,7 @@ describe('AppShell', () => {
 	});
 
 	it('프로젝트 만들기가 실패하면 백엔드 메시지를 보여주고 창은 남는다', async () => {
-		server.use(http.post('/api/orgs/1/projects', () => HttpResponse.json({ code: 'plan_limit', message: 'free 플랜은 프로젝트 1개까지입니다.' }, { status: 403 })));
+		server.use(http.post('/api/projects', () => HttpResponse.json({ code: 'plan_limit', message: 'free 플랜은 프로젝트 1개까지입니다.' }, { status: 403 })));
 		setToken('jwt');
 		renderApp('/app/settings');
 		const u = await openCreate();
@@ -68,12 +68,12 @@ describe('AppShell', () => {
 		expect(screen.getByRole('dialog')).toBeDefined();
 	});
 
-	it('레일 맨 아래 내 계정 → 프로젝트 설정·조직 설정·사용량으로 간다', async () => {
+	it('레일 맨 아래 내 계정 → 프로젝트 설정·사용량·내 정보로 간다', async () => {
 		setToken('jwt');
 		renderApp('/app/events');
 		const u = user();
 		await u.click(screen.getByRole('button', { name: '내 계정' }));
-		expect((await screen.findAllByRole('menuitem')).map((m) => m.textContent)).toEqual(['프로젝트 설정', '조직 설정', '사용량', '내 정보', '로그아웃']);
+		expect((await screen.findAllByRole('menuitem')).map((m) => m.textContent)).toEqual(['프로젝트 설정', '사용량', '내 정보', '로그아웃']);
 		await u.click(screen.getByRole('menuitem', { name: '프로젝트 설정' }));
 		expect(await screen.findByRole('heading', { name: '프로젝트 설정' })).toBeDefined();
 		// 설정 계열 화면에서는 계정 아이콘이 선택 상태

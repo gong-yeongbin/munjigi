@@ -14,7 +14,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-type Props = { orgId: number; projectId: number; id: string; sourceName: (id: number | null) => string; onClose: () => void };
+type Props = { projectId: number; id: string; sourceName: (id: number | null) => string; onClose: () => void };
 
 const headerLines = (headers: Record<string, string | string[]>) =>
 	Object.entries(headers)
@@ -22,14 +22,14 @@ const headerLines = (headers: Record<string, string | string[]>) =>
 		.join('\n');
 
 // 이벤트 상세. 요청(헤더·본문)과 전달 목록. 리플레이는 새 이벤트를 만든다
-export function EventSheet({ orgId, projectId, id, sourceName, onClose }: Props) {
+export function EventSheet({ projectId, id, sourceName, onClose }: Props) {
 	const client = useQueryClient();
 	const [confirming, setConfirming] = useState(false);
 	const open = useDelayedOpen();
-	const event = useQuery({ queryKey: ['event', orgId, projectId, id], queryFn: () => getEvent(orgId, projectId, id) });
-	const body = useQuery({ queryKey: ['event-body', orgId, projectId, id], queryFn: () => getEventBody(orgId, projectId, id) });
+	const event = useQuery({ queryKey: ['event', projectId, id], queryFn: () => getEvent(projectId, id) });
+	const body = useQuery({ queryKey: ['event-body', projectId, id], queryFn: () => getEventBody(projectId, id) });
 	const replay = useMutation({
-		mutationFn: () => replayEvent(orgId, projectId, id),
+		mutationFn: () => replayEvent(projectId, id),
 		onSuccess: async (created) => {
 			toast.success(`새 이벤트 #${created.id}로 다시 보냈습니다.`);
 			await client.invalidateQueries({ queryKey: ['events'] });

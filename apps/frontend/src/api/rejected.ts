@@ -15,4 +15,4 @@ export const REASON_LABEL: Record<RejectionReason, string> = {
 	usage_exceeded: '사용량 초과',
 };
 
-export const listRejected = async (orgId: number, projectId: number, filter: RejectedFilter) => (await api.get<Page<RejectedRequest>>(`/orgs/${orgId}/projects/${projectId}/rejected-requests`, { params: { limit: 50, ...filter } })).data;
+export const listRejected = async (projectId: number, filter: RejectedFilter) => (await api.get<Page<RejectedRequest>>(`/projects/${projectId}/rejected-requests`, { params: { limit: 50, ...filter } })).data;
