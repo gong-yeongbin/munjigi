@@ -13,10 +13,10 @@ class FakeUsage implements UsageRepository {
 	];
 	since: Date | null = null;
 
-	findPlan(orgId: number) {
-		return Promise.resolve(this.plans.get(orgId) ?? null);
+	findPlan(userId: number) {
+		return Promise.resolve(this.plans.get(userId) ?? null);
 	}
-	countEventsByProject(_orgId: number, since: Date) {
+	countEventsByProject(_userId: number, since: Date) {
 		this.since = since;
 		return Promise.resolve(this.projects);
 	}
@@ -24,8 +24,8 @@ class FakeUsage implements UsageRepository {
 
 class FakeCounters implements Pick<IngressCounters, 'getUsage'> {
 	asked: [number, string] | null = null;
-	getUsage(organizationId: number, period: string) {
-		this.asked = [organizationId, period];
+	getUsage(userId: number, period: string) {
+		this.asked = [userId, period];
 		return Promise.resolve(1284);
 	}
 }
@@ -50,7 +50,7 @@ describe('UsageService', () => {
 		expect((await service.get(2, new Date('2026-10-15T03:00:00Z'))).included).toBe(1_000);
 	});
 
-	it('get — 없는 조직은 404 organization_not_found', async () => {
+	it('get — 없는 user는 404 user_not_found', async () => {
 		const service = new UsageService(new FakeUsage(), new FakeCounters() as unknown as IngressCounters);
 		await expect(service.get(9)).rejects.toThrow(NotFoundException);
 	});

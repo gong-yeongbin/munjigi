@@ -57,7 +57,7 @@ describe('전달 워커 (통합)', () => {
 	let base: string;
 	let received: Received[];
 	let respond: (request: IncomingMessage, response: ServerResponse) => void;
-	let orgId: number;
+	let userId: number;
 	let projectId: number;
 	let sourceId: number;
 
@@ -117,8 +117,8 @@ describe('전달 워커 (통합)', () => {
 		await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
 		base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
-		orgId = (await prisma.organization.create({ data: { name: 'delivery 통합', plan: 'team' } })).id;
-		projectId = (await prisma.project.create({ data: { organization_id: orgId, name: 'shop', signing_secret_enc: cipher.encrypt(SECRET) } })).id;
+		userId = (await prisma.user.create({ data: { email: `u-${Date.now().toString(36)}${Math.random().toString(36).slice(2)}@test.munjigi.local`, name: 'delivery 통합', plan: 'team' } })).id;
+		projectId = (await prisma.project.create({ data: { user_id: userId, name: 'shop', signing_secret_enc: cipher.encrypt(SECRET) } })).id;
 	});
 
 	beforeEach(() => {
@@ -129,8 +129,8 @@ describe('전달 워커 (통합)', () => {
 	afterAll(async () => {
 		await new Promise<void>((resolve) => void server.close(() => resolve()));
 		// source·destination·event·delivery·attempt는 project를 지우면 같이 지워진다(FK cascade)
-		await prisma.project.deleteMany({ where: { organization_id: orgId } });
-		await prisma.organization.deleteMany({ where: { id: orgId } });
+		await prisma.project.deleteMany({ where: { user_id: userId } });
+		await prisma.user.deleteMany({ where: { id: userId } });
 		await valkey.del(keys.stream, keys.scheduled, ...[...destinations].flatMap((id) => Object.values(guardKeys(id))));
 		await queue.onModuleDestroy();
 		await valkey.onModuleDestroy();
@@ -157,7 +157,7 @@ describe('전달 워커 (통합)', () => {
 			'x-munjigi-attempt-count': '1',
 			'x-munjigi-attempt-trigger': 'initial',
 			'x-munjigi-will-retry-after': '1',
-			'x-munjigi-event-url': `https://app.munjigi.io/orgs/${orgId}/projects/${projectId}/events/${event.id}`,
+			'x-munjigi-event-url': `https://app.munjigi.io/projects/${projectId}/events/${event.id}`,
 			'x-munjigi-source-name': encodeURIComponent('토스 결제'),
 			'x-munjigi-destination-name': 'orders',
 			'x-munjigi-original-ip': '203.0.113.7',
@@ -316,7 +316,7 @@ describe('전달 워커 (통합)', () => {
 	});
 
 	it('정지된 project의 delivery도 held로 둔다', async () => {
-		const suspended = await prisma.project.create({ data: { organization_id: orgId, name: 'suspended', suspended_at: new Date(), signing_secret_enc: cipher.encrypt(SECRET) } });
+		const suspended = await prisma.project.create({ data: { user_id: userId, name: 'suspended', suspended_at: new Date(), signing_secret_enc: cipher.encrypt(SECRET) } });
 		const original = projectId;
 		projectId = suspended.id;
 		const { delivery } = await setup();
@@ -355,7 +355,7 @@ describe('전달 워커 (통합)', () => {
 	});
 
 	it('서명 키가 없는 예전 project는 처음 보낼 때 키를 만들어 그 키로 서명한다', async () => {
-		const legacy = await prisma.project.create({ data: { organization_id: orgId, name: 'legacy' } });
+		const legacy = await prisma.project.create({ data: { user_id: userId, name: 'legacy' } });
 		const original = projectId;
 		projectId = legacy.id;
 		const { delivery } = await setup();

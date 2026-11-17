@@ -10,7 +10,7 @@ export type EventFilter = { source_id?: number; received_after?: Date; received_
 export type ReplaySource = {
 	event: event;
 	source: { id: number; connections: { id: number; destination_id: number }[] } | null;
-	project: { organization_id: number; plan: Plan; suspended: boolean };
+	project: { user_id: number; plan: Plan; suspended: boolean };
 };
 export type NewReplay = {
 	project_id: number;

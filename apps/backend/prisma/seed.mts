@@ -5,7 +5,6 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 
 const SEED_EMAIL = 'seed@munjigi.local';
-const SEED_TEAM = '시드 팀';
 const SEED_PROJECT = '시드 프로젝트';
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
@@ -25,64 +24,30 @@ function encrypt(plain: string): string {
 const ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
 const newSlug = (): string => Array.from({ length: 20 }, () => ALPHABET[randomInt(ALPHABET.length)]).join('');
 
+// 시드 유저. team 플랜이라 상한에 걸리지 않고, 서비스 관리자(is_admin)라 관리자 경로를 로컬에서 바로 볼 수 있다
 async function seedAccount(): Promise<void> {
-	// 조직에는 유니크 키가 없어 upsert할 수 없다. 시드 유저가 있으면 이미 시드된 DB로 보고 건너뛴다.
 	if (await prisma.user.findUnique({ where: { email: SEED_EMAIL } })) {
 		console.log('시드 유저가 이미 있어 계정 시드는 건너뜁니다.');
 		return;
 	}
 
-	const now = new Date();
-	const periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-	const periodEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
-
-	await prisma.$transaction(async (tx) => {
-		const user = await tx.user.create({
-			data: {
-				email: SEED_EMAIL,
-				name: '시드 유저',
-				identities: { create: { provider: 'google', provider_user_id: 'seed-google-sub' } },
-			},
-		});
-
-		// 첫 로그인 때 생기는 개인 조직과 같은 모양. free라 subscription이 없다.
-		await tx.organization.create({
-			data: {
-				name: '시드 유저의 조직',
-				plan: 'free',
-				members: { create: { user_id: user.id, role: 'owner' } },
-			},
-		});
-
-		await tx.organization.create({
-			data: {
-				name: SEED_TEAM,
-				plan: 'team',
-				members: { create: { user_id: user.id, role: 'owner' } },
-				subscription: {
-					create: {
-						plan: 'team',
-						status: 'active',
-						customer_key: 'seed-customer-key',
-						// 암호화 모듈(4. billing) 전이라 복호화할 수 없는 자리표시값이다. 결제 배치에 쓰지 않는다.
-						billing_key_enc: 'seed-placeholder',
-						card_issuer_code: '11',
-						card_number_masked: '1234-****-****-5678',
-						current_period_start: periodStart,
-						current_period_end: periodEnd,
-					},
-				},
-			},
-		});
+	await prisma.user.create({
+		data: {
+			email: SEED_EMAIL,
+			name: '시드 유저',
+			plan: 'team',
+			is_admin: true,
+			identities: { create: { provider: 'google', provider_user_id: 'seed-google-sub' } },
+		},
 	});
 
-	console.log('계정 시드 완료: 유저 1, 조직 2(free, team), 구독 1');
+	console.log('계정 시드 완료: 유저 1(team)');
 }
 
 // 계정 시드와 따로 멱등하게 둔다. 계정만 시드된 DB에도 다음 실행 때 들어간다.
 async function seedGateway(): Promise<void> {
-	const team = await prisma.organization.findFirstOrThrow({ where: { name: SEED_TEAM, members: { some: { user: { email: SEED_EMAIL } } } } });
-	if (await prisma.project.findFirst({ where: { organization_id: team.id, name: SEED_PROJECT } })) {
+	const user = await prisma.user.findUniqueOrThrow({ where: { email: SEED_EMAIL } });
+	if (await prisma.project.findFirst({ where: { user_id: user.id, name: SEED_PROJECT } })) {
 		console.log('시드 프로젝트가 이미 있어 수신·전달 시드는 건너뜁니다.');
 		return;
 	}
@@ -90,7 +55,7 @@ async function seedGateway(): Promise<void> {
 	await prisma.$transaction(async (tx) => {
 		const project = await tx.project.create({
 			data: {
-				organization_id: team.id,
+				user_id: user.id,
 				name: SEED_PROJECT,
 				sources: {
 					create: [

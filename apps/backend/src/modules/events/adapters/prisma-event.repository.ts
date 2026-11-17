@@ -37,7 +37,7 @@ export class PrismaEventRepository implements EventRepository {
 			where: { id, project_id: projectId },
 			include: {
 				source: { select: { id: true, connections: { select: { id: true, destination_id: true } } } },
-				project: { select: { suspended_at: true, organization: { select: { id: true, plan: true } } } },
+				project: { select: { suspended_at: true, user: { select: { id: true, plan: true } } } },
 			},
 		});
 		if (!row) return null;
@@ -45,7 +45,7 @@ export class PrismaEventRepository implements EventRepository {
 		return {
 			event,
 			source,
-			project: { organization_id: project.organization.id, plan: project.organization.plan, suspended: project.suspended_at !== null },
+			project: { user_id: project.user.id, plan: project.user.plan, suspended: project.suspended_at !== null },
 		};
 	}
 

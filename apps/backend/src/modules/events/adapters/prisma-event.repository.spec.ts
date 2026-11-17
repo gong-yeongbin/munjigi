@@ -9,7 +9,7 @@ describe('PrismaEventRepository (통합)', () => {
 	const prisma = new PrismaService(new ConfigService({ DATABASE_URL: process.env.DATABASE_URL }));
 	const events = new PrismaEventRepository(prisma);
 	const BODY = Buffer.from('{"n":1}');
-	let orgId: number;
+	let userId: number;
 	let projectId: number;
 	let otherProjectId: number;
 	let sourceId: number;
@@ -21,9 +21,9 @@ describe('PrismaEventRepository (통합)', () => {
 		prisma.event.create({ data: { project_id: project, source_id: source, idempotency_key: `k:${randomUUID()}`, method: 'PUT', path: '/a', query: 'q=1', headers: { 'x-v': '1' }, body: new Uint8Array(BODY), content_type: 'application/json', size: BODY.length, received_at } });
 
 	beforeAll(async () => {
-		orgId = (await prisma.organization.create({ data: { name: 'event 테스트', plan: 'team' } })).id;
-		projectId = (await prisma.project.create({ data: { organization_id: orgId, name: 'a' } })).id;
-		otherProjectId = (await prisma.project.create({ data: { organization_id: orgId, name: 'b' } })).id;
+		userId = (await prisma.user.create({ data: { email: `u-${Date.now().toString(36)}${Math.random().toString(36).slice(2)}@test.munjigi.local`, name: 'event 테스트', plan: 'team' } })).id;
+		projectId = (await prisma.project.create({ data: { user_id: userId, name: 'a' } })).id;
+		otherProjectId = (await prisma.project.create({ data: { user_id: userId, name: 'b' } })).id;
 		sourceId = (await prisma.source.create({ data: { project_id: projectId, slug: newSlug(), name: 's' } })).id;
 		destinationId = (await prisma.destination.create({ data: { project_id: projectId, name: 'd', url: 'https://example.com' } })).id;
 		connectionId = (await prisma.connection.create({ data: { source_id: sourceId, destination_id: destinationId } })).id;
@@ -35,8 +35,8 @@ describe('PrismaEventRepository (통합)', () => {
 	});
 
 	afterAll(async () => {
-		await prisma.project.deleteMany({ where: { organization_id: orgId } });
-		await prisma.organization.deleteMany({ where: { id: orgId } });
+		await prisma.project.deleteMany({ where: { user_id: userId } });
+		await prisma.user.deleteMany({ where: { id: userId } });
 		await prisma.$disconnect();
 	});
 
@@ -64,12 +64,12 @@ describe('PrismaEventRepository (통합)', () => {
 		expect(await events.findBody(otherProjectId, ids[0]!)).toBeNull();
 	});
 
-	it('findForReplay — 소스의 지금 연결과 조직 플랜·정지 여부를 같이 준다. 소스가 지워진 event는 source null', async () => {
+	it('findForReplay — 소스의 지금 연결과 user 플랜·정지 여부를 같이 준다. 소스가 지워진 event는 source null', async () => {
 		const found = await events.findForReplay(projectId, ids[0]!);
 		expect(found!.event.id).toBe(ids[0]);
 		expect(Buffer.from(found!.event.body).equals(BODY)).toBe(true);
 		expect(found!.source).toEqual({ id: sourceId, connections: [{ id: connectionId, destination_id: destinationId }] });
-		expect(found!.project).toEqual({ organization_id: orgId, plan: 'team', suspended: false });
+		expect(found!.project).toEqual({ user_id: userId, plan: 'team', suspended: false });
 		expect((await events.findForReplay(projectId, ids[3]!))!.source).toBeNull();
 		expect(await events.findForReplay(otherProjectId, ids[0]!)).toBeNull();
 	});

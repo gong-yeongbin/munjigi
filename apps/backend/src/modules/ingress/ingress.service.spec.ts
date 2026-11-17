@@ -10,7 +10,7 @@ import type { IngressRepository, IngressSource, NewEvent, Rejection } from './po
 
 const SLUG = 'k3x9q2m7w1pz8c4v6b0n';
 const NOW = new Date('2026-10-02T03:00:00Z');
-const ORG = 1;
+const USER = 1;
 const SECRET = 'shared-secret';
 // 경로·쿼리 없이 온 평범한 POST
 const POST = { method: 'POST', path: '', query: '', source_ip: '203.0.113.7' };
@@ -20,7 +20,7 @@ class FakeRepository implements IngressRepository {
 	source: IngressSource | null = {
 		id: 7,
 		project_id: 10,
-		organization_id: ORG,
+		user_id: USER,
 		plan: 'team',
 		suspended: false,
 		signing_secret: null,
@@ -55,14 +55,14 @@ class FakeCounters implements IngressCounters {
 	usage = new Map<string, number>();
 	rejectionRecordAllowed = true;
 
-	incrementUsage(organizationId: number, period: string) {
-		const key = `${organizationId}:${period}`;
+	incrementUsage(userId: number, period: string) {
+		const key = `${userId}:${period}`;
 		const count = (this.usage.get(key) ?? 0) + 1;
 		this.usage.set(key, count);
 		return Promise.resolve(count);
 	}
-	getUsage(organizationId: number, period: string) {
-		return Promise.resolve(this.usage.get(`${organizationId}:${period}`) ?? 0);
+	getUsage(userId: number, period: string) {
+		return Promise.resolve(this.usage.get(`${userId}:${period}`) ?? 0);
 	}
 	allowRejectionRecord() {
 		return Promise.resolve(this.rejectionRecordAllowed);
@@ -97,7 +97,7 @@ describe('IngressService', () => {
 	let counters: FakeCounters;
 	let queue: FakeQueue;
 	let service: IngressService;
-	const usageKey = `${ORG}:${usagePeriod(NOW)}`;
+	const usageKey = `${USER}:${usagePeriod(NOW)}`;
 	const receive = (body: string | Buffer = '{"order":1}', headers: Record<string, string | undefined> = { 'content-type': 'application/json' }, slug = SLUG) =>
 		service.receive({ slug, ...POST, headers, body: Buffer.from(body), size: Buffer.byteLength(body), now: NOW });
 	// 상한을 넘는 본문은 읽지 않고 온다. body는 비어 있고 size만 선언된 크기다
@@ -304,8 +304,8 @@ describe('IngressService', () => {
 			await receive('{"n":1}');
 			await service.receive({ slug: SLUG, ...POST, headers: {}, body: Buffer.from('{"n":2}'), size: 7, now: new Date('2026-11-01T00:00:00+09:00') });
 			expect([...counters.usage.entries()]).toEqual([
-				[`${ORG}:202610`, 1],
-				[`${ORG}:202611`, 1],
+				[`${USER}:202610`, 1],
+				[`${USER}:202611`, 1],
 			]);
 		});
 	});

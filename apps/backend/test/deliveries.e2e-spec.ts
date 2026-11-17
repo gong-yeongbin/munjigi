@@ -9,7 +9,6 @@ describe('deliveries (e2e)', () => {
 	let t: TestApp;
 	let valkey: ValkeyService;
 	let owner: LoggedIn;
-	let member: LoggedIn;
 	let outsider: LoggedIn;
 	let projectId: number;
 	let otherProjectId: number;
@@ -19,7 +18,7 @@ describe('deliveries (e2e)', () => {
 	let connectionA: number;
 
 	const auth = (who: LoggedIn) => ({ Authorization: `Bearer ${who.token}` });
-	const path = (project: number, rest = '') => `/orgs/${owner.org_id}/projects/${project}/deliveries${rest}`;
+	const path = (project: number, rest = '') => `/projects/${project}/deliveries${rest}`;
 	const list = async (query = '', as = owner) => (await t.http().get(path(projectId, query)).set(auth(as)).expect(200)).body as DeliveryPageDto;
 	const row = (id: bigint) => t.prisma.delivery.findUniqueOrThrow({ where: { id } });
 	// 큐 Stream에서 이 delivery의 항목(사유 포함)을 찾는다
@@ -37,11 +36,10 @@ describe('deliveries (e2e)', () => {
 	beforeAll(async () => {
 		t = await createTestApp();
 		valkey = t.app.get(ValkeyService);
-		[owner, member, outsider] = [await t.login(), await t.login(), await t.login()];
-		await t.prisma.organization.update({ where: { id: owner.org_id }, data: { plan: 'team' } });
-		await t.prisma.organization_member.create({ data: { organization_id: owner.org_id, user_id: member.user_id, role: 'member' } });
-		projectId = (await t.prisma.project.create({ data: { organization_id: owner.org_id, name: 'shop' } })).id;
-		otherProjectId = (await t.prisma.project.create({ data: { organization_id: owner.org_id, name: 'blog' } })).id;
+		[owner, outsider] = [await t.login(), await t.login()];
+		await t.prisma.user.update({ where: { id: owner.user_id }, data: { plan: 'team' } });
+		projectId = (await t.prisma.project.create({ data: { user_id: owner.user_id, name: 'shop' } })).id;
+		otherProjectId = (await t.prisma.project.create({ data: { user_id: owner.user_id, name: 'blog' } })).id;
 		sourceId = (await t.prisma.source.create({ data: { project_id: projectId, slug: newSlug(), name: 's' } })).id;
 		destinationA = (await t.prisma.destination.create({ data: { project_id: projectId, name: 'a', url: 'https://example.com/a' } })).id;
 		destinationB = (await t.prisma.destination.create({ data: { project_id: projectId, name: 'b', url: 'https://example.com/b' } })).id;
@@ -65,8 +63,8 @@ describe('deliveries (e2e)', () => {
 			await delivery({ status: 'succeeded', attempt: 1, destination_id: destinationB });
 		});
 
-		it('목록을 최근 것부터 준다. status·destination_id·event_id로 거른다. member도 본다', async () => {
-			const page = await list('', member);
+		it('목록을 최근 것부터 준다. status·destination_id·event_id로 거른다.', async () => {
+			const page = await list('', owner);
 			expect(page.data.map((d) => d.status)).toEqual(['succeeded', 'failed']);
 			expect(typeof page.data[0]!.id).toBe('string');
 			expect(page.data[1]).toMatchObject({ id: failed.toString(), status: 'failed', attempt: 2, destination_id: destinationA, connection_id: connectionA, next_attempt_at: '2026-10-02T00:10:00.000Z' });
@@ -96,7 +94,7 @@ describe('deliveries (e2e)', () => {
 			expect(second.next_cursor).toBeNull();
 		});
 
-		it('다른 project의 delivery는 404, 타 조직은 404, 토큰이 없으면 401, id 모양이 틀리면 400', async () => {
+		it('다른 project의 delivery는 404, 남의 project는 404, 토큰이 없으면 401, id 모양이 틀리면 400', async () => {
 			const other = await delivery({}, otherProjectId);
 			expect(errorOf(await t.http().get(path(projectId, `/${other.id}`)).set(auth(owner)).expect(404)).code).toBe('delivery_not_found');
 			expect((await t.http().get(path(otherProjectId)).set(auth(owner)).expect(200)).body).toMatchObject({ data: [{ id: other.id.toString() }] });
@@ -111,7 +109,7 @@ describe('deliveries (e2e)', () => {
 			const d = await delivery({ status: 'failed', attempt: 3, next_attempt_at: new Date(Date.now() + 600_000) });
 			await valkey.zadd(DELIVERY_SCHEDULED, Date.now() + 600_000, d.id.toString());
 
-			const body = (await t.http().post(path(projectId, `/${d.id}/retry`)).set(auth(member)).expect(200)).body as DeliveryDto;
+			const body = (await t.http().post(path(projectId, `/${d.id}/retry`)).set(auth(owner)).expect(200)).body as DeliveryDto;
 			expect(body).toMatchObject({ id: d.id.toString(), status: 'pending', attempt: 3, next_attempt_at: null });
 			expect(await queued(d.id)).toEqual(['manual']);
 			expect(await valkey.zscore(DELIVERY_SCHEDULED, d.id.toString())).toBeNull();
@@ -177,7 +175,7 @@ describe('deliveries (e2e)', () => {
 			for (const status of ['failed', 'pending', 'held'] as const) {
 				const d = await delivery({ status, next_attempt_at: new Date(Date.now() + 600_000) });
 				await valkey.zadd(DELIVERY_SCHEDULED, Date.now() + 600_000, d.id.toString());
-				expect((await t.http().post(path(projectId, `/${d.id}/cancel`)).set(auth(member)).expect(200)).body).toMatchObject({ id: d.id.toString(), status: 'canceled', next_attempt_at: null });
+				expect((await t.http().post(path(projectId, `/${d.id}/cancel`)).set(auth(owner)).expect(200)).body).toMatchObject({ id: d.id.toString(), status: 'canceled', next_attempt_at: null });
 				expect(await valkey.zscore(DELIVERY_SCHEDULED, d.id.toString())).toBeNull();
 			}
 		});

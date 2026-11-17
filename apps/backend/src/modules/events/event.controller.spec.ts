@@ -11,7 +11,7 @@ describe('EventController', () => {
 		replay: vi.fn().mockResolvedValue('replayed'),
 	};
 	const controller = new EventController(service as unknown as EventService);
-	const project = { orgId: 1, projectId: 10 };
+	const project = { projectId: 10 };
 	const event = { ...project, eventId: '120' };
 
 	it('경로·쿼리를 service에 그대로 넘긴다. id는 BigInt로 바꾼다', async () => {

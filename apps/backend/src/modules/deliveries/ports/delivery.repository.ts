@@ -21,7 +21,7 @@ export type DeliveryContext = {
 		// 소스가 지워졌으면 null
 		source_name: string | null;
 	};
-	project: { id: number; organization_id: number; suspended: boolean; signing_secret: string };
+	project: { id: number; user_id: number; suspended: boolean; signing_secret: string };
 	// 목적지나 연결이 지워졌으면 null. 그 delivery는 보내지 않고 닫는다
 	destination: { id: number; name: string; url: string; headers: Record<string, string>; timeout_ms: number; concurrency: number } | null;
 	connection: (RetryRule & { paused: boolean }) | null;

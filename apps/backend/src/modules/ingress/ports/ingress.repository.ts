@@ -5,7 +5,7 @@ import type { SignatureConfig } from '@/modules/sources/domain/signature-config'
 export type IngressSource = {
 	id: number;
 	project_id: number;
-	organization_id: number;
+	user_id: number;
 	plan: Plan;
 	// 결제 실패로 정지된 project인가
 	suspended: boolean;

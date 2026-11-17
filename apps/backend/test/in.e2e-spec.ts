@@ -21,7 +21,7 @@ describe('in (e2e) — 웹훅 수신', () => {
 	const auth = (who: LoggedIn) => ({ Authorization: `Bearer ${who.token}` });
 	const json = (slug: string, body: string) => t.http().post(`/in/${slug}`).set('Content-Type', 'application/json').send(body);
 	const unique = () => JSON.stringify({ order: randomUUID() });
-	const usage = async (who: LoggedIn) => Number((await valkey.get(usageKey(who.org_id, usagePeriod(new Date())))) ?? 0);
+	const usage = async (who: LoggedIn) => Number((await valkey.get(usageKey(who.user_id, usagePeriod(new Date())))) ?? 0);
 	const eventsOf = (sourceId: number) => t.prisma.event.count({ where: { source_id: sourceId } });
 	const rejectionsOf = (sourceId: number) => t.prisma.rejected_request.findMany({ where: { source_id: sourceId }, orderBy: { id: 'asc' } });
 
@@ -39,15 +39,15 @@ describe('in (e2e) — 웹훅 수신', () => {
 		t = await createTestApp();
 		valkey = t.app.get(ValkeyService);
 		[owner, free] = [await t.login(), await t.login()];
-		await t.prisma.organization.update({ where: { id: owner.org_id }, data: { plan: 'team' } });
-		projectId = (await t.prisma.project.create({ data: { organization_id: owner.org_id, name: 'shop' } })).id;
+		await t.prisma.user.update({ where: { id: owner.user_id }, data: { plan: 'team' } });
+		projectId = (await t.prisma.project.create({ data: { user_id: owner.user_id, name: 'shop' } })).id;
 		open = await source(projectId, 2);
 
 		// 서명 설정은 API로 넣어 암호화·기본값 채우기까지 실제 경로를 탄다
 		signed = await source(projectId, 1);
 		await t
 			.http()
-			.patch(`/orgs/${owner.org_id}/projects/${projectId}/sources/${signed.id}`)
+			.patch(`/projects/${projectId}/sources/${signed.id}`)
 			.set(auth(owner))
 			.send({ signing_secret: SECRET, signature_config: { header: 'X-Hub-Signature-256', prefix: 'sha256=', event_id_header: 'X-GitHub-Delivery' } })
 			.expect(200);
@@ -161,7 +161,7 @@ describe('in (e2e) — 웹훅 수신', () => {
 	});
 
 	it('정지된 프로젝트의 소스는 403 project_suspended. event 0건', async () => {
-		const suspended = await t.prisma.project.create({ data: { organization_id: owner.org_id, name: 'suspended', suspended_at: new Date() } });
+		const suspended = await t.prisma.project.create({ data: { user_id: owner.user_id, name: 'suspended', suspended_at: new Date() } });
 		const target = await source(suspended.id, 1);
 
 		expect(errorOf(await json(target.slug, unique()).expect(403)).code).toBe('project_suspended');
@@ -169,11 +169,11 @@ describe('in (e2e) — 웹훅 수신', () => {
 		expect((await rejectionsOf(target.id)).map((r) => r.reason)).toEqual(['project_suspended']);
 	});
 
-	it('free 조직은 월 1,000건까지 받고 그 뒤는 429 usage_exceeded', async () => {
-		const project = await t.prisma.project.create({ data: { organization_id: free.org_id, name: 'trial' } });
+	it('free user는 월 1,000건까지 받고 그 뒤는 429 usage_exceeded', async () => {
+		const project = await t.prisma.project.create({ data: { user_id: free.user_id, name: 'trial' } });
 		const target = await source(project.id, 1);
 		// 999건을 이미 받은 것으로 둔다
-		await valkey.set(usageKey(free.org_id, usagePeriod(new Date())), 999);
+		await valkey.set(usageKey(free.user_id, usagePeriod(new Date())), 999);
 
 		await json(target.slug, unique()).expect(200);
 		expect(errorOf(await json(target.slug, unique()).expect(429)).code).toBe('usage_exceeded');
@@ -193,23 +193,23 @@ describe('in (e2e) — 웹훅 수신', () => {
 
 	it('slug를 재발급하면 옛 주소는 404, 새 주소로 받는다', async () => {
 		const target = await source(projectId, 1);
-		const rotated = (await t.http().post(`/orgs/${owner.org_id}/projects/${projectId}/sources/${target.id}/rotate-slug`).set(auth(owner)).expect(200)).body as SourceDto;
+		const rotated = (await t.http().post(`/projects/${projectId}/sources/${target.id}/rotate-slug`).set(auth(owner)).expect(200)).body as SourceDto;
 
 		await json(target.slug, unique()).expect(404);
 		await json(rotated.slug, unique()).expect(200);
 	});
 
 	it('소스를 지워도 이벤트는 남고 source_id가 비워진다. 프로젝트를 지우면 이벤트도 사라진다', async () => {
-		const project = await t.prisma.project.create({ data: { organization_id: owner.org_id, name: 'to-delete' } });
+		const project = await t.prisma.project.create({ data: { user_id: owner.user_id, name: 'to-delete' } });
 		const target = await source(project.id, 1);
 		const id = BigInt(((await json(target.slug, unique()).expect(200)).body as { id: string }).id);
 
-		await t.http().delete(`/orgs/${owner.org_id}/projects/${project.id}/sources/${target.id}`).set(auth(owner)).expect(204);
+		await t.http().delete(`/projects/${project.id}/sources/${target.id}`).set(auth(owner)).expect(204);
 		await json(target.slug, unique()).expect(404);
 		expect(await t.prisma.event.findUnique({ where: { id } })).toMatchObject({ project_id: project.id, source_id: null });
 		expect(await t.prisma.delivery.count({ where: { event_id: id } })).toBe(1);
 
-		await t.http().delete(`/orgs/${owner.org_id}/projects/${project.id}`).set(auth(owner)).expect(204);
+		await t.http().delete(`/projects/${project.id}`).set(auth(owner)).expect(204);
 		expect(await t.prisma.event.findUnique({ where: { id } })).toBeNull();
 		expect(await t.prisma.delivery.count({ where: { event_id: id } })).toBe(0);
 	});

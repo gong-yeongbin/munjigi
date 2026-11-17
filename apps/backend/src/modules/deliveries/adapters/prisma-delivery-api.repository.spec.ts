@@ -8,7 +8,7 @@ import { PrismaDeliveryApiRepository } from './prisma-delivery-api.repository';
 describe('PrismaDeliveryApiRepository (통합)', () => {
 	const prisma = new PrismaService(new ConfigService({ DATABASE_URL: process.env.DATABASE_URL }));
 	const deliveries = new PrismaDeliveryApiRepository(prisma);
-	let orgId: number;
+	let userId: number;
 	let projectId: number;
 	let otherProjectId: number;
 	let destinationA: number;
@@ -21,16 +21,16 @@ describe('PrismaDeliveryApiRepository (통합)', () => {
 	const status = async (id: bigint) => (await prisma.delivery.findUniqueOrThrow({ where: { id } })).status;
 
 	beforeAll(async () => {
-		orgId = (await prisma.organization.create({ data: { name: 'delivery api 테스트', plan: 'team' } })).id;
-		projectId = (await prisma.project.create({ data: { organization_id: orgId, name: 'a' } })).id;
-		otherProjectId = (await prisma.project.create({ data: { organization_id: orgId, name: 'b' } })).id;
+		userId = (await prisma.user.create({ data: { email: `u-${Date.now().toString(36)}${Math.random().toString(36).slice(2)}@test.munjigi.local`, name: 'delivery api 테스트', plan: 'team' } })).id;
+		projectId = (await prisma.project.create({ data: { user_id: userId, name: 'a' } })).id;
+		otherProjectId = (await prisma.project.create({ data: { user_id: userId, name: 'b' } })).id;
 		destinationA = (await prisma.destination.create({ data: { project_id: projectId, name: 'a', url: 'https://example.com/a' } })).id;
 		destinationB = (await prisma.destination.create({ data: { project_id: projectId, name: 'b', url: 'https://example.com/b' } })).id;
 	});
 
 	afterAll(async () => {
-		await prisma.project.deleteMany({ where: { organization_id: orgId } });
-		await prisma.organization.deleteMany({ where: { id: orgId } });
+		await prisma.project.deleteMany({ where: { user_id: userId } });
+		await prisma.user.deleteMany({ where: { id: userId } });
 		await prisma.$disconnect();
 	});
 

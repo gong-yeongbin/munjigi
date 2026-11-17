@@ -1,9 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, Min } from 'class-validator';
-import { OrgIdParamDto } from '@/common/http/params';
 
-export class ProjectParamDto extends OrgIdParamDto {
+// 경로 파라미터 DTO. :projectId는 가드가 먼저 보지만 핸들러는 이 DTO로 숫자를 받는다
+export class ProjectParamDto {
 	@ApiProperty({ example: 10 })
 	@Type(() => Number)
 	@IsInt()
@@ -16,7 +16,7 @@ export class ProjectDto {
 	id: number;
 
 	@ApiProperty({ example: 1 })
-	organization_id: number;
+	user_id: number;
 
 	@ApiProperty({ example: 'shop' })
 	name: string;

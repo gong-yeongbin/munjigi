@@ -8,19 +8,19 @@ const USAGE_TTL_SEC = 100 * 24 * 60 * 60;
 export const REJECTION_RECORDS_PER_MINUTE = 10;
 const MINUTE_MS = 60_000;
 
-export const usageKey = (organizationId: number, period: string) => `org:${organizationId}:usage:${period}`;
+export const usageKey = (userId: number, period: string) => `user:${userId}:usage:${period}`;
 export const rejectionKey = (sourceId: number, now: Date) => `source:${sourceId}:rejected:${Math.floor(now.getTime() / MINUTE_MS)}`;
 
 @Injectable()
 export class ValkeyIngressCounters implements IngressCounters {
 	constructor(private readonly valkey: ValkeyService) {}
 
-	incrementUsage(organizationId: number, period: string): Promise<number> {
-		return this.increment(usageKey(organizationId, period), USAGE_TTL_SEC);
+	incrementUsage(userId: number, period: string): Promise<number> {
+		return this.increment(usageKey(userId, period), USAGE_TTL_SEC);
 	}
 
-	async getUsage(organizationId: number, period: string): Promise<number> {
-		return Number((await this.valkey.get(usageKey(organizationId, period))) ?? 0);
+	async getUsage(userId: number, period: string): Promise<number> {
+		return Number((await this.valkey.get(usageKey(userId, period))) ?? 0);
 	}
 
 	async allowRejectionRecord(sourceId: number, now: Date): Promise<boolean> {

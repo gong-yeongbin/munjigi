@@ -1,6 +1,6 @@
 import { Controller, Get, HttpCode, Param, Post, Query, Res } from '@nestjs/common';
 import { ApiOperation, ApiProduces, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { Roles } from '@/common/auth/decorators';
+import { Authenticated } from '@/common/auth/decorators';
 import { ProjectParamDto } from '@/modules/projects/dto/get-project.dto';
 import { EventDetailDto, EventDto, EventPageDto, EventParamDto, ListEventsQueryDto } from './dto/event.dto';
 import { EventService } from './event.service';
@@ -9,11 +9,11 @@ import { EventService } from './event.service';
 type RawReply = { header(name: string, value: string): RawReply; send(body: Buffer): unknown };
 
 @ApiTags('events')
-@Controller('orgs/:orgId/projects/:projectId/events')
+@Controller('projects/:projectId/events')
 export class EventController {
 	constructor(private readonly events: EventService) {}
 
-	@Roles('member')
+	@Authenticated()
 	@Get()
 	@ApiOperation({ summary: '받은 이벤트 목록을 조회한다. source_id·received_after·received_before로 거를 수 있다. 본문은 없다' })
 	@ApiResponse({ status: 200, type: EventPageDto })
@@ -21,17 +21,17 @@ export class EventController {
 		return this.events.list(projectId, query);
 	}
 
-	@Roles('member')
+	@Authenticated()
 	@Get(':eventId')
 	@ApiOperation({ summary: '이벤트와 그 전달 목록을 조회한다. 본문은 없다' })
 	@ApiResponse({ status: 200, type: EventDetailDto })
-	@ApiResponse({ status: 404, description: 'event_not_found — 없거나 타 프로젝트' })
+	@ApiResponse({ status: 404, description: 'event_not_found — 없거나 다른 프로젝트' })
 	get(@Param() { projectId, eventId }: EventParamDto): Promise<EventDetailDto> {
 		return this.events.get(projectId, BigInt(eventId));
 	}
 
 	// 받은 바이트를 받은 Content-Type 그대로 돌려준다. JSON 직렬화를 거치지 않으려고 reply로 직접 보낸다
-	@Roles('member')
+	@Authenticated()
 	@Get(':eventId/body')
 	@ApiOperation({ summary: '이벤트 본문을 받은 바이트·Content-Type 그대로 준다' })
 	@ApiProduces('application/octet-stream')
@@ -42,7 +42,7 @@ export class EventController {
 		reply.header('content-type', content_type ?? 'application/octet-stream').send(body);
 	}
 
-	@Roles('member')
+	@Authenticated()
 	@Post(':eventId/replay')
 	@HttpCode(201)
 	@ApiOperation({ summary: '이 웹훅을 새 이벤트로 다시 처리해 소스에 지금 걸린 연결들로 보낸다. 사용량에 들어간다' })

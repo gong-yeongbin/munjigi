@@ -11,7 +11,6 @@ describe('events (e2e)', () => {
 	let t: TestApp;
 	let valkey: ValkeyService;
 	let owner: LoggedIn;
-	let member: LoggedIn;
 	let outsider: LoggedIn;
 	let projectId: number;
 	let otherProjectId: number;
@@ -20,20 +19,19 @@ describe('events (e2e)', () => {
 	const BODY = '{ "order": 1,\n  "note": "받은 그대로" }';
 
 	const auth = (who: LoggedIn) => ({ Authorization: `Bearer ${who.token}` });
-	const path = (project: number, rest = '') => `/orgs/${owner.org_id}/projects/${project}/events${rest}`;
+	const path = (project: number, rest = '') => `/projects/${project}/events${rest}`;
 	const list = async (query = '', as = owner) => (await t.http().get(path(projectId, query)).set(auth(as)).expect(200)).body as EventPageDto;
-	const usage = async (who: LoggedIn) => Number((await valkey.get(usageKey(who.org_id, usagePeriod(new Date())))) ?? 0);
+	const usage = async (who: LoggedIn) => Number((await valkey.get(usageKey(who.user_id, usagePeriod(new Date())))) ?? 0);
 	const receive = async (slug: string, body: string, rest = '') => ((await t.http().put(`/in/${slug}${rest}`).set('Content-Type', 'application/json').set('X-Vendor', 'toss').send(body).expect(200)).body as { id: string }).id;
 	const queuedIds = async () => (await valkey.xrevrange(DELIVERY_STREAM, '+', '-', 'COUNT', 1000)).map(([, fields]) => fields[1]);
 
 	beforeAll(async () => {
 		t = await createTestApp();
 		valkey = t.app.get(ValkeyService);
-		[owner, member, outsider] = [await t.login(), await t.login(), await t.login()];
-		await t.prisma.organization.update({ where: { id: owner.org_id }, data: { plan: 'team' } });
-		await t.prisma.organization_member.create({ data: { organization_id: owner.org_id, user_id: member.user_id, role: 'member' } });
-		projectId = (await t.prisma.project.create({ data: { organization_id: owner.org_id, name: 'shop' } })).id;
-		otherProjectId = (await t.prisma.project.create({ data: { organization_id: owner.org_id, name: 'blog' } })).id;
+		[owner, outsider] = [await t.login(), await t.login()];
+		await t.prisma.user.update({ where: { id: owner.user_id }, data: { plan: 'team' } });
+		projectId = (await t.prisma.project.create({ data: { user_id: owner.user_id, name: 'shop' } })).id;
+		otherProjectId = (await t.prisma.project.create({ data: { user_id: owner.user_id, name: 'blog' } })).id;
 		source = await t.prisma.source.create({ data: { project_id: projectId, slug: newSlug(), name: 's' }, select: { id: true, slug: true } });
 		destinationId = (await t.prisma.destination.create({ data: { project_id: projectId, name: 'd', url: 'https://example.com/hook' } })).id;
 		await t.prisma.connection.create({ data: { source_id: source.id, destination_id: destinationId } });
@@ -51,8 +49,8 @@ describe('events (e2e)', () => {
 			second = await receive(source.slug, '{"order":2}', '/orders/42?v=2');
 		});
 
-		it('목록을 최근 것부터 준다. 본문은 없고 크기만 있다. member도 본다', async () => {
-			const page = await list('', member);
+		it('목록을 최근 것부터 준다. 본문은 없고 크기만 있다.', async () => {
+			const page = await list('', owner);
 			expect(page.data.map((e) => e.id)).toEqual([second, first]);
 			expect(page.data[1]).toMatchObject({ project_id: projectId, source_id: source.id, method: 'PUT', path: '', query: '', size: Buffer.byteLength(BODY), content_type: 'application/json', verified: false, headers: { 'x-vendor': 'toss' } });
 			expect(page.data[0]).toMatchObject({ path: '/orders/42', query: 'v=2' });
@@ -78,7 +76,7 @@ describe('events (e2e)', () => {
 		});
 
 		it('본문은 받은 바이트와 Content-Type 그대로 준다', async () => {
-			const response = await t.http().get(path(projectId, `/${first}/body`)).set(auth(member)).buffer(true).parse((res, cb) => {
+			const response = await t.http().get(path(projectId, `/${first}/body`)).set(auth(owner)).buffer(true).parse((res, cb) => {
 				const chunks: Buffer[] = [];
 				res.on('data', (chunk: Buffer) => chunks.push(chunk));
 				res.on('end', () => cb(null, Buffer.concat(chunks)));
@@ -96,7 +94,7 @@ describe('events (e2e)', () => {
 			expect(page2.next_cursor).toBeNull();
 		});
 
-		it('다른 project의 이벤트는 404(본문도), 타 조직은 404, 토큰이 없으면 401', async () => {
+		it('다른 project의 이벤트는 404(본문도), 남의 project는 404, 토큰이 없으면 401', async () => {
 			const other = await t.prisma.event.create({ data: { project_id: otherProjectId, idempotency_key: `k:${randomUUID()}`, headers: {}, body: new Uint8Array(2), size: 2 } });
 			expect(errorOf(await t.http().get(path(projectId, `/${other.id}`)).set(auth(owner)).expect(404)).code).toBe('event_not_found');
 			expect(errorOf(await t.http().get(path(projectId, `/${other.id}/body`)).set(auth(owner)).expect(404)).code).toBe('event_not_found');
@@ -113,7 +111,7 @@ describe('events (e2e)', () => {
 			await t.prisma.connection.create({ data: { source_id: source.id, destination_id: added.id } });
 			const used = await usage(owner);
 
-			const replayed = (await t.http().post(path(projectId, `/${original}/replay`)).set(auth(member)).expect(201)).body as EventDto;
+			const replayed = (await t.http().post(path(projectId, `/${original}/replay`)).set(auth(owner)).expect(201)).body as EventDto;
 			expect(replayed.id).not.toBe(original);
 			expect(replayed).toMatchObject({ project_id: projectId, source_id: source.id, method: 'PUT', path: '/orders/7', query: 'x=1', content_type: 'application/json', headers: { 'x-vendor': 'toss' }, size: 18 });
 			expect(replayed.idempotency_key).toMatch(new RegExp(`^replay:${original}:\\d+$`));
@@ -140,16 +138,16 @@ describe('events (e2e)', () => {
 			expect(await usage(owner)).toBe(used);
 		});
 
-		it('free 조직이 월 상한을 넘었으면 429 usage_exceeded. 정지된 project는 403. 타 project는 404', async () => {
+		it('free user가 월 상한을 넘었으면 429 usage_exceeded. 정지된 project는 403. 타 project는 404', async () => {
 			const free = await t.login();
-			const freeProject = await t.prisma.project.create({ data: { organization_id: free.org_id, name: 'free' } });
+			const freeProject = await t.prisma.project.create({ data: { user_id: free.user_id, name: 'free' } });
 			const freeSource = await t.prisma.source.create({ data: { project_id: freeProject.id, slug: newSlug(), name: 's' } });
 			const freeDestination = await t.prisma.destination.create({ data: { project_id: freeProject.id, name: 'd', url: 'https://example.com/free' } });
 			await t.prisma.connection.create({ data: { source_id: freeSource.id, destination_id: freeDestination.id } });
 			const event = await t.prisma.event.create({ data: { project_id: freeProject.id, source_id: freeSource.id, idempotency_key: `k:${randomUUID()}`, headers: {}, body: new Uint8Array(2), size: 2 } });
-			const freePath = `/orgs/${free.org_id}/projects/${freeProject.id}/events/${event.id}/replay`;
+			const freePath = `/projects/${freeProject.id}/events/${event.id}/replay`;
 
-			await valkey.set(usageKey(free.org_id, usagePeriod(new Date())), 1000);
+			await valkey.set(usageKey(free.user_id, usagePeriod(new Date())), 1000);
 			expect(errorOf(await t.http().post(freePath).set(auth(free)).expect(429)).code).toBe('usage_exceeded');
 			expect(await t.prisma.event.count({ where: { project_id: freeProject.id } })).toBe(1);
 

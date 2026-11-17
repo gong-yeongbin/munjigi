@@ -15,13 +15,13 @@ export class PrismaSourceRepository implements SourceRepository {
 
 	create(projectId: number, data: { name: string; slug: string } & Signature, check: CreateCheck): Promise<SourceView> {
 		return this.prisma.$transaction(async (tx) => {
-			// 같은 조직의 생성을 줄 세운다. 개수를 센 뒤 만들기 전에 다른 요청이 끼어들지 못한다
-			await tx.$queryRaw`SELECT o.id FROM organization o JOIN project p ON p.organization_id = o.id WHERE p.id = ${projectId} FOR UPDATE OF o`;
+			// 같은 user의 생성을 줄 세운다. 개수를 센 뒤 만들기 전에 다른 요청이 끼어들지 못한다
+			await tx.$queryRaw`SELECT u.id FROM "user" u JOIN project p ON p.user_id = u.id WHERE p.id = ${projectId} FOR UPDATE OF u`;
 			const [project, count] = await Promise.all([
-				tx.project.findUniqueOrThrow({ where: { id: projectId }, select: { organization: { select: { plan: true } } } }),
+				tx.project.findUniqueOrThrow({ where: { id: projectId }, select: { user: { select: { plan: true } } } }),
 				tx.source.count({ where: { project_id: projectId } }),
 			]);
-			check({ plan: project.organization.plan, count });
+			check({ plan: project.user.plan, count });
 			return tx.source.create({ data: { project_id: projectId, name: data.name, slug: data.slug, ...this.signatureColumns(data) }, omit });
 		});
 	}

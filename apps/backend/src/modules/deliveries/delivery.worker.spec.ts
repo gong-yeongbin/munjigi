@@ -30,7 +30,7 @@ class FakeDeliveries implements Pick<DeliveryRepository, 'load' | 'recordAttempt
 			body: BODY,
 			source_name: 'github',
 		},
-		project: { id: 10, organization_id: 1, suspended: false, signing_secret: 'rdsec_key' },
+		project: { id: 10, user_id: 1, suspended: false, signing_secret: 'rdsec_key' },
 		destination: { id: 7, name: 'orders', url: 'https://api.example.com/webhooks', headers: { Authorization: 'Bearer token' }, timeout_ms: 5000, concurrency: 10 },
 		// 기본값: 2배씩·5분·9회
 		connection: { retry_strategy: 'exponential', retry_interval_ms: 5 * MIN, retry_count: 9, paused: false },
@@ -150,7 +150,7 @@ describe('DeliveryWorker', () => {
 				'x-munjigi-attempt-count': '1',
 				'x-munjigi-attempt-trigger': 'initial',
 				'x-munjigi-will-retry-after': '300',
-				'x-munjigi-event-url': 'https://app.munjigi.io/orgs/1/projects/10/events/120',
+				'x-munjigi-event-url': 'https://app.munjigi.io/projects/10/events/120',
 				'x-munjigi-source-name': 'github',
 				'x-munjigi-destination-name': 'orders',
 				'x-munjigi-original-ip': '203.0.113.7',

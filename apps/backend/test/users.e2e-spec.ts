@@ -21,6 +21,8 @@ describe('users (e2e)', () => {
 				email: profile.email,
 				name: profile.name,
 				avatar_url: profile.picture,
+				plan: 'free',
+				is_admin: false,
 				created_at: user.created_at.toISOString(),
 				updated_at: user.updated_at.toISOString(),
 			});

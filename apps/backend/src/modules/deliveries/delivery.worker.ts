@@ -64,7 +64,7 @@ export class DeliveryWorker {
 				trigger,
 				// 이번 시도까지 실패하면 재시도는 delivery.attempt번 한 셈이다(첫 시도 제외)
 				will_retry_after_sec: willRetryAfterSec(connection, delivery.attempt),
-				event_url: `${this.appUrl}/orgs/${project.organization_id}/projects/${project.id}/events/${event.id}`,
+				event_url: `${this.appUrl}/projects/${project.id}/events/${event.id}`,
 				source_name: event.source_name,
 				destination_name: destination.name,
 				original_ip: event.source_ip,

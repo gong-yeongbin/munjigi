@@ -14,20 +14,20 @@ describe('PrismaSourceRepository (통합)', () => {
 	const allow: CreateCheck = () => undefined;
 	const CONFIG = { header: 'x-signature', encoding: 'hex' as const, secret_encoding: 'utf8' as const, signed_payload: '{body}', tolerance_sec: 300 };
 	const open = (name: string) => ({ name, slug: newSlug(), signing_secret: null, signature_config: null });
-	let orgId: number;
+	let userId: number;
 	let projectId: number;
 	let otherProjectId: number;
 
 	beforeAll(async () => {
-		orgId = (await prisma.organization.create({ data: { name: 'source 테스트', plan: 'team' } })).id;
-		projectId = (await prisma.project.create({ data: { organization_id: orgId, name: 'a' } })).id;
-		otherProjectId = (await prisma.project.create({ data: { organization_id: orgId, name: 'b' } })).id;
+		userId = (await prisma.user.create({ data: { email: `source-${Date.now()}@test.munjigi.local`, name: 'source 테스트', plan: 'team' } })).id;
+		projectId = (await prisma.project.create({ data: { user_id: userId, name: 'a' } })).id;
+		otherProjectId = (await prisma.project.create({ data: { user_id: userId, name: 'b' } })).id;
 	});
 
 	afterAll(async () => {
 		// source는 project를 지우면 같이 지워진다(FK cascade)
-		await prisma.project.deleteMany({ where: { organization_id: orgId } });
-		await prisma.organization.deleteMany({ where: { id: orgId } });
+		await prisma.project.deleteMany({ where: { user_id: userId } });
+		await prisma.user.delete({ where: { id: userId } });
 		await prisma.$disconnect();
 	});
 
@@ -47,7 +47,7 @@ describe('PrismaSourceRepository (통합)', () => {
 	});
 
 	it('create — 동시에 들어와도 잠금으로 줄 서서 상한(1)을 넘지 않는다', async () => {
-		// 커넥션을 미리 열어 둔다. 근거는 context-notes.md "상한 검사는 조직 행 잠금 안에서"
+		// 커넥션을 미리 열어 둔다. 근거는 context-notes.md "상한 검사는 user 행 잠금 안에서"
 		await Promise.all(Array.from({ length: 10 }, () => prisma.$queryRaw`SELECT pg_sleep(0.05)::text`));
 		const limitOne: CreateCheck = ({ count }) => {
 			if (count >= 1) throw new Error('limit');

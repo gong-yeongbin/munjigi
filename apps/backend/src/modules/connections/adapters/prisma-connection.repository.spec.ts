@@ -8,7 +8,7 @@ import { PrismaConnectionRepository } from './prisma-connection.repository';
 describe('PrismaConnectionRepository (통합)', () => {
 	const prisma = new PrismaService(new ConfigService({ DATABASE_URL: process.env.DATABASE_URL }));
 	const connections = new PrismaConnectionRepository(prisma);
-	let orgId: number;
+	let userId: number;
 	let projectId: number;
 	let otherProjectId: number;
 	// [이 project의 것 둘, 다른 project의 것 하나]
@@ -19,17 +19,17 @@ describe('PrismaConnectionRepository (통합)', () => {
 	const destination = async (project: number) => (await prisma.destination.create({ data: { project_id: project, name: 'd', url: 'https://example.com' } })).id;
 
 	beforeAll(async () => {
-		orgId = (await prisma.organization.create({ data: { name: 'connection 테스트', plan: 'team' } })).id;
-		projectId = (await prisma.project.create({ data: { organization_id: orgId, name: 'a' } })).id;
-		otherProjectId = (await prisma.project.create({ data: { organization_id: orgId, name: 'b' } })).id;
+		userId = (await prisma.user.create({ data: { email: `connection-${Date.now()}@test.munjigi.local`, name: 'connection 테스트', plan: 'team' } })).id;
+		projectId = (await prisma.project.create({ data: { user_id: userId, name: 'a' } })).id;
+		otherProjectId = (await prisma.project.create({ data: { user_id: userId, name: 'b' } })).id;
 		sources = [await source(projectId), await source(projectId), await source(otherProjectId)];
 		destinations = [await destination(projectId), await destination(projectId), await destination(otherProjectId)];
 	});
 
 	afterAll(async () => {
 		// source·destination·connection은 project를 지우면 같이 지워진다(FK cascade)
-		await prisma.project.deleteMany({ where: { organization_id: orgId } });
-		await prisma.organization.deleteMany({ where: { id: orgId } });
+		await prisma.project.deleteMany({ where: { user_id: userId } });
+		await prisma.user.delete({ where: { id: userId } });
 		await prisma.$disconnect();
 	});
 

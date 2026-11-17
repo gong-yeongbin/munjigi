@@ -25,19 +25,15 @@ export class PrismaAccountRepository implements AccountRepository {
 	}
 
 	async signUpWithGoogle(profile: GoogleProfile): Promise<number> {
-		return this.prisma.$transaction(async (tx) => {
-			const user = await tx.user.create({
-				data: {
-					email: profile.email,
-					name: profile.name,
-					avatar_url: profile.picture,
-					identities: { create: { provider: 'google', provider_user_id: profile.sub } },
-				},
-			});
-			await tx.organization.create({
-				data: { name: `${profile.name}의 조직`, plan: 'free', members: { create: { user_id: user.id, role: 'owner' } } },
-			});
-			return user.id;
+		const user = await this.prisma.user.create({
+			data: {
+				email: profile.email,
+				name: profile.name,
+				avatar_url: profile.picture,
+				identities: { create: { provider: 'google', provider_user_id: profile.sub } },
+			},
+			select: { id: true },
 		});
+		return user.id;
 	}
 }

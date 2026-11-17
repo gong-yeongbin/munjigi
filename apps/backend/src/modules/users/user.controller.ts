@@ -1,6 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { Actor, Roles } from '@/common/auth/decorators';
+import { Actor, Authenticated } from '@/common/auth/decorators';
 import { MeDto } from './dto/get-me.dto';
 import { UserService } from './user.service';
 
@@ -9,7 +9,7 @@ import { UserService } from './user.service';
 export class UserController {
 	constructor(private readonly users: UserService) {}
 
-	@Roles()
+	@Authenticated()
 	@Get('me')
 	@ApiOperation({ summary: '로그인한 내 정보를 조회한다' })
 	@ApiResponse({ status: 200, type: MeDto })

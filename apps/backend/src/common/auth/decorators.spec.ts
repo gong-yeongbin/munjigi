@@ -1,6 +1,6 @@
 import type { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { type Actor, actorFromContext, IS_PUBLIC, Public, ROLES, Roles } from './decorators';
+import { type Actor, actorFromContext, AUTHENTICATED, Authenticated, IS_PUBLIC, Public } from './decorators';
 
 // 데코레이터 메타데이터는 메서드 함수 자체에 붙는다. this 바인딩 경고 없이 함수를 꺼낸다
 function method(target: object, name: string): () => void {
@@ -22,19 +22,16 @@ describe('auth 데코레이터', () => {
 		expect(reflector.get(IS_PUBLIC, method(Target.prototype, 'handler'))).toBe(true);
 	});
 
-	it('@Roles는 인자를 그대로, 빈 인자는 빈 배열로 단다', () => {
+	it('@Authenticated는 AUTHENTICATED 메타데이터를 단다', () => {
 		class Target {
-			@Roles('admin')
-			admin() {}
-			@Roles()
-			loggedIn() {}
+			@Authenticated()
+			handler() {}
 		}
-		expect(reflector.get(ROLES, method(Target.prototype, 'admin'))).toEqual(['admin']);
-		expect(reflector.get(ROLES, method(Target.prototype, 'loggedIn'))).toEqual([]);
+		expect(reflector.get(AUTHENTICATED, method(Target.prototype, 'handler'))).toBe(true);
 	});
 
 	it('actorFromContext는 가드가 붙인 주체를 돌려준다', () => {
-		const actor: Actor = { kind: 'user', user_id: 1, org_id: 2, role: 'owner' };
+		const actor: Actor = { kind: 'user', user_id: 1, project_id: 2 };
 		expect(actorFromContext(contextWith({ actor }))).toBe(actor);
 	});
 

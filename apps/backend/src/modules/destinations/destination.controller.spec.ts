@@ -10,7 +10,7 @@ describe('DestinationController', () => {
 		remove: vi.fn().mockResolvedValue(undefined),
 	};
 	const controller = new DestinationController(service as unknown as DestinationService);
-	const project = { orgId: 1, projectId: 10 };
+	const project = { projectId: 10 };
 	const destination = { ...project, destinationId: 3 };
 
 	it('경로·쿼리·본문을 service에 그대로 넘긴다', async () => {

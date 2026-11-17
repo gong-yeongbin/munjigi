@@ -24,7 +24,7 @@ export class UsageDto {
 	@ApiProperty({ description: '플랜에 포함된 월 이벤트 수', example: 10000 })
 	included: number;
 
-	@ApiProperty({ description: '이번 달 조직 전체 사용량. 청구 기준(리플레이 포함, 거부된 요청 제외)', example: 1284 })
+	@ApiProperty({ description: '이번 달 내 전체 사용량. 청구 기준(리플레이 포함, 거부된 요청 제외)', example: 1284 })
 	used: number;
 
 	@ApiProperty({ type: [ProjectUsageDto], description: '프로젝트별 조회용 수치. 합이 used와 다를 수 있다' })

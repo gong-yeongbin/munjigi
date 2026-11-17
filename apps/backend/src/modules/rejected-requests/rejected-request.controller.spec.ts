@@ -6,7 +6,7 @@ describe('RejectedRequestController', () => {
 		const service = { list: vi.fn().mockResolvedValue('page') };
 		const controller = new RejectedRequestController(service as unknown as RejectedRequestService);
 
-		expect(await controller.list({ orgId: 1, projectId: 10 }, { limit: 50, source_id: 7, reason: 'signature_mismatch' })).toBe('page');
+		expect(await controller.list({ projectId: 10 }, { limit: 50, source_id: 7, reason: 'signature_mismatch' })).toBe('page');
 		expect(service.list).toHaveBeenCalledWith(10, { limit: 50, source_id: 7, reason: 'signature_mismatch' });
 	});
 });

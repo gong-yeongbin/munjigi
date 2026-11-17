@@ -34,7 +34,7 @@ export class PrismaDeliveryRepository implements DeliveryRepository {
 						headers: true,
 						body: true,
 						source: { select: { name: true } },
-						project: { select: { id: true, organization_id: true, suspended_at: true, signing_secret_enc: true } },
+						project: { select: { id: true, user_id: true, suspended_at: true, signing_secret_enc: true } },
 					},
 				},
 				destination: { select: { id: true, name: true, url: true, headers_enc: true, timeout_ms: true, concurrency: true } },
@@ -62,7 +62,7 @@ export class PrismaDeliveryRepository implements DeliveryRepository {
 			},
 			project: {
 				id: event.project.id,
-				organization_id: event.project.organization_id,
+				user_id: event.project.user_id,
 				suspended: event.project.suspended_at !== null,
 				signing_secret: await this.signingSecret(event.project.id, event.project.signing_secret_enc),
 			},

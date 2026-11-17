@@ -7,7 +7,7 @@ describe('UserController', () => {
 		const getMe = vi.fn().mockResolvedValue(me);
 		const controller = new UserController({ getMe } as unknown as UserService);
 
-		expect(await controller.me({ kind: 'user', user_id: 7, org_id: null, role: null })).toBe(me);
+		expect(await controller.me({ kind: 'user', user_id: 7, project_id: null })).toBe(me);
 		expect(getMe).toHaveBeenCalledWith(7);
 	});
 });

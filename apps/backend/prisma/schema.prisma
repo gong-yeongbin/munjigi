@@ -15,7 +15,7 @@ enum Plan {
   business
 }
 
-// subscription에는 free가 없다. free 조직은 subscription 행이 없다.
+// subscription에는 free가 없다. free user는 subscription 행이 없다.
 enum SubscriptionPlan {
   team
   business
@@ -29,18 +29,6 @@ enum SubscriptionStatus {
 
 enum IdentityProvider {
   google
-}
-
-enum MemberRole {
-  owner
-  admin
-  member
-}
-
-// 초대로 줄 수 있는 역할. owner는 조직당 1명이라 초대로 주지 않는다.
-enum InvitationRole {
-  admin
-  member
 }
 
 enum PaymentStatus {
@@ -88,34 +76,25 @@ enum RejectionReason {
   usage_exceeded
 }
 
-// ─── 계정·테넌트 ─────────────────────────────────────────────────────────
+// ─── 계정 ─────────────────────────────────────────────────────────────────
 
-model organization {
-  id         Int      @id @default(autoincrement())
-  name       String   @db.VarChar(100)
-  // 인그레스·가드가 보는 현재 적용 플랜. subscription을 조인하지 않으려고 둔다.
-  plan       Plan     @default(free)
-  created_at DateTime @default(now()) @db.Timestamptz(3)
-  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(3)
-
-  members       organization_member[]
-  invitations   invitation[]
-  projects      project[]
-  subscription  subscription?
-  usage_periods usage_period[]
-}
-
+// 조직 없이 user가 project를 직접 소유한다(2026-11-17 조직 제거). plan도 user에 붙는다.
 model user {
   id         Int      @id @default(autoincrement())
   email      String   @unique @db.VarChar(255)
   name       String   @db.VarChar(100)
   avatar_url String?  @db.Text
+  // 인그레스·가드가 보는 현재 적용 플랜. subscription을 조인하지 않으려고 둔다.
+  plan       Plan     @default(free)
+  // 서비스 운영자. 쓰는 곳(어드민 화면·API)은 다음 단계. 값은 SQL로만 바꾼다.
+  is_admin   Boolean  @default(false)
   created_at DateTime @default(now()) @db.Timestamptz(3)
   updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(3)
 
-  identities  user_identity[]
-  memberships organization_member[]
-  invitations invitation[]
+  identities    user_identity[]
+  projects      project[]
+  subscription  subscription?
+  usage_periods usage_period[]
 }
 
 model user_identity {
@@ -130,62 +109,29 @@ model user_identity {
   @@index([user_id])
 }
 
-// 조직당 owner 1명은 마이그레이션 SQL의 부분 유니크 인덱스로 강제한다.
-// CREATE UNIQUE INDEX organization_member_one_owner ON organization_member (organization_id) WHERE role = 'owner';
-model organization_member {
-  organization    organization @relation(fields: [organization_id], references: [id])
-  organization_id Int
-  user            user         @relation(fields: [user_id], references: [id])
-  user_id         Int
-  role            MemberRole
-  created_at      DateTime     @default(now()) @db.Timestamptz(3)
-  updated_at      DateTime     @default(now()) @updatedAt @db.Timestamptz(3)
-
-  @@id([organization_id, user_id])
-  @@index([user_id])
-}
-
-// 조직 아래 작업 단위. 소스·목적지·이벤트·api_key가 여기에 속한다.
-// 같은 조직 안에서 이름은 대소문자를 무시하고 유일하다. 마이그레이션 SQL의 식 인덱스로 강제한다.
-// CREATE UNIQUE INDEX project_organization_id_lower_name_key ON project (organization_id, lower(name));
+// user 아래 작업 단위. 소스·목적지·이벤트·api_key가 여기에 속한다.
+// 같은 user 안에서 이름은 대소문자를 무시하고 유일하다. 마이그레이션 SQL의 식 인덱스로 강제한다.
+// CREATE UNIQUE INDEX project_user_id_lower_name_key ON project (user_id, lower(name));
 // suspended_at은 결제 실패로 plan이 내려가 project 수가 상한을 넘었을 때 채운다(4. billing). 정지 중에는
 // 수신·전달을 멈추고 데이터만 보관한다.
 model project {
-  id                 Int          @id @default(autoincrement())
-  organization       organization @relation(fields: [organization_id], references: [id])
-  organization_id    Int
-  name               String       @db.VarChar(100)
-  suspended_at       DateTime?    @db.Timestamptz(3)
+  id                 Int       @id @default(autoincrement())
+  user               user      @relation(fields: [user_id], references: [id])
+  user_id            Int
+  name               String    @db.VarChar(100)
+  suspended_at       DateTime? @db.Timestamptz(3)
   // 전달 요청에 찍는 서명(X-Munjigi-Signature)의 키. AES-256-GCM. 고객 서버가 확인하려면 알아야 해서
   // 업체 시크릿과 달리 조회·교체가 된다. 예전 project는 NULL이고 처음 쓸 때 만든다.
-  signing_secret_enc String?      @db.Text
-  created_at         DateTime     @default(now()) @db.Timestamptz(3)
-  updated_at         DateTime     @default(now()) @updatedAt @db.Timestamptz(3)
+  signing_secret_enc String?   @db.Text
+  created_at         DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at         DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
 
   sources           source[]
   destinations      destination[]
   events            event[]
   rejected_requests rejected_request[]
 
-  @@index([organization_id])
-}
-
-// 대기 중인 초대. 수락하면 행을 지운다. 같은 조직·이메일로 다시 초대하면 이 행의 토큰·만료를 바꾼다.
-// token_hash는 SHA-256 hex. 원문은 메일에만 있다.
-model invitation {
-  id                 Int            @id @default(autoincrement())
-  organization       organization   @relation(fields: [organization_id], references: [id])
-  organization_id    Int
-  email              String         @db.VarChar(255)
-  role               InvitationRole
-  token_hash         String         @unique @db.Char(64)
-  expires_at         DateTime       @db.Timestamptz(3)
-  invited_by         user           @relation(fields: [invited_by_user_id], references: [id])
-  invited_by_user_id Int
-  created_at         DateTime       @default(now()) @db.Timestamptz(3)
-  updated_at         DateTime       @default(now()) @updatedAt @db.Timestamptz(3)
-
-  @@unique([organization_id, email])
+  @@index([user_id])
 }
 
 // ─── 수신·전달 설정 ──────────────────────────────────────────────────────
@@ -355,11 +301,11 @@ model rejected_request {
 
 // ─── 결제·사용량 ─────────────────────────────────────────────────────────
 
-// 토스 빌링. free 조직은 행이 없다.
+// 토스 빌링. free user는 행이 없다.
 model subscription {
   id                   Int                @id @default(autoincrement())
-  organization         organization       @relation(fields: [organization_id], references: [id])
-  organization_id      Int                @unique
+  user                 user               @relation(fields: [user_id], references: [id])
+  user_id              Int                @unique
   plan                 SubscriptionPlan
   status               SubscriptionStatus
   customer_key         String             @unique @db.VarChar(64)
@@ -376,20 +322,20 @@ model subscription {
   payments payment[]
 }
 
-// Valkey 카운터(org:{id}:usage:{yyyymm})의 스냅샷
+// Valkey 카운터(user:{id}:usage:{yyyymm})의 스냅샷
 model usage_period {
-  id              Int          @id @default(autoincrement())
-  organization    organization @relation(fields: [organization_id], references: [id])
-  organization_id Int
-  period_start    DateTime     @db.Date
-  event_count     Int          @default(0)
-  finalized_at    DateTime?    @db.Timestamptz(3)
-  created_at      DateTime     @default(now()) @db.Timestamptz(3)
-  updated_at      DateTime     @default(now()) @updatedAt @db.Timestamptz(3)
+  id           Int       @id @default(autoincrement())
+  user         user      @relation(fields: [user_id], references: [id])
+  user_id      Int
+  period_start DateTime  @db.Date
+  event_count  Int       @default(0)
+  finalized_at DateTime? @db.Timestamptz(3)
+  created_at   DateTime  @default(now()) @db.Timestamptz(3)
+  updated_at   DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
 
   payments payment[]
 
-  @@unique([organization_id, period_start])
+  @@unique([user_id, period_start])
 }
 
 // 금액은 원 단위 정수. amount = base_amount + overage_amount

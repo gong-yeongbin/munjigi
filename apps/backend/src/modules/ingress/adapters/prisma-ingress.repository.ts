@@ -23,7 +23,7 @@ export class PrismaIngressRepository implements IngressRepository {
 				project_id: true,
 				signing_secret_enc: true,
 				signature_config: true,
-				project: { select: { suspended_at: true, organization: { select: { id: true, plan: true } } } },
+				project: { select: { suspended_at: true, user: { select: { id: true, plan: true } } } },
 				connections: { select: { id: true, destination_id: true } },
 			},
 		});
@@ -31,8 +31,8 @@ export class PrismaIngressRepository implements IngressRepository {
 		return {
 			id: row.id,
 			project_id: row.project_id,
-			organization_id: row.project.organization.id,
-			plan: row.project.organization.plan,
+			user_id: row.project.user.id,
+			plan: row.project.user.plan,
 			suspended: row.project.suspended_at !== null,
 			signing_secret: row.signing_secret_enc === null ? null : this.cipher.decrypt(row.signing_secret_enc),
 			signature_config: row.signature_config === null ? null : signatureConfigSchema.parse(row.signature_config),

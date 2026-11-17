@@ -6,7 +6,6 @@ import { createTestApp, errorOf, type LoggedIn, type TestApp } from './support';
 describe('rejected-requests (e2e)', () => {
 	let t: TestApp;
 	let owner: LoggedIn;
-	let member: LoggedIn;
 	let outsider: LoggedIn;
 	let projectId: number;
 	let otherProjectId: number;
@@ -16,17 +15,16 @@ describe('rejected-requests (e2e)', () => {
 	const SECRET = 'whsec_e2e';
 
 	const auth = (who: LoggedIn) => ({ Authorization: `Bearer ${who.token}` });
-	const path = (project: number, query = '') => `/orgs/${owner.org_id}/projects/${project}/rejected-requests${query}`;
+	const path = (project: number, query = '') => `/projects/${project}/rejected-requests${query}`;
 	const list = async (query = '', as = owner) => (await t.http().get(path(projectId, query)).set(auth(as)).expect(200)).body as RejectedRequestPageDto;
 	const send = (slug: string, body: string) => t.http().post(`/in/${slug}`).set('Content-Type', 'application/json').send(body);
 
 	beforeAll(async () => {
 		t = await createTestApp();
-		[owner, member, outsider] = [await t.login(), await t.login(), await t.login()];
-		await t.prisma.organization.update({ where: { id: owner.org_id }, data: { plan: 'team' } });
-		await t.prisma.organization_member.create({ data: { organization_id: owner.org_id, user_id: member.user_id, role: 'member' } });
-		projectId = (await t.prisma.project.create({ data: { organization_id: owner.org_id, name: 'shop' } })).id;
-		otherProjectId = (await t.prisma.project.create({ data: { organization_id: owner.org_id, name: 'blog' } })).id;
+		[owner, outsider] = [await t.login(), await t.login()];
+		await t.prisma.user.update({ where: { id: owner.user_id }, data: { plan: 'team' } });
+		projectId = (await t.prisma.project.create({ data: { user_id: owner.user_id, name: 'shop' } })).id;
+		otherProjectId = (await t.prisma.project.create({ data: { user_id: owner.user_id, name: 'blog' } })).id;
 
 		lonely = await t.prisma.source.create({ data: { project_id: projectId, slug: newSlug(), name: 'lonely' }, select: { id: true, slug: true } });
 		signed = await t.prisma.source.create({ data: { project_id: projectId, slug: newSlug(), name: 'signed' }, select: { id: true, slug: true } });
@@ -34,7 +32,7 @@ describe('rejected-requests (e2e)', () => {
 		await t.prisma.connection.create({ data: { source_id: signed.id, destination_id: destination.id } });
 		await t
 			.http()
-			.patch(`/orgs/${owner.org_id}/projects/${projectId}/sources/${signed.id}`)
+			.patch(`/projects/${projectId}/sources/${signed.id}`)
 			.set(auth(owner))
 			.send({ signing_secret: SECRET, signature_config: { header: 'X-Signature' } })
 			.expect(200);
@@ -47,8 +45,8 @@ describe('rejected-requests (e2e)', () => {
 
 	afterAll(() => t.close());
 
-	it('거부된 요청을 최근 것부터 준다. 사유·헤더·크기가 있고 본문은 없다. member도 본다', async () => {
-		const page = await list('', member);
+	it('거부된 요청을 최근 것부터 준다. 사유·헤더·크기가 있고 본문은 없다.', async () => {
+		const page = await list('', owner);
 
 		expect(page.next_cursor).toBeNull();
 		expect(page.data.map((r) => [r.source_id, r.reason])).toEqual([
@@ -85,7 +83,7 @@ describe('rejected-requests (e2e)', () => {
 		expect(second.next_cursor).toBeNull();
 	});
 
-	it('다른 project에서는 보이지 않고, 타 조직은 404, 토큰이 없으면 401', async () => {
+	it('다른 project에서는 보이지 않고, 남의 project는 404, 토큰이 없으면 401', async () => {
 		const other = (await t.http().get(path(otherProjectId)).set(auth(owner)).expect(200)).body as RejectedRequestPageDto;
 		expect(other).toEqual({ data: [], next_cursor: null });
 
@@ -94,7 +92,7 @@ describe('rejected-requests (e2e)', () => {
 	});
 
 	it('소스를 지워도 기록은 남고 source_id가 null이 된다', async () => {
-		await t.http().delete(`/orgs/${owner.org_id}/projects/${projectId}/sources/${lonely.id}`).set(auth(owner)).expect(204);
+		await t.http().delete(`/projects/${projectId}/sources/${lonely.id}`).set(auth(owner)).expect(204);
 
 		const page = await list('?reason=no_connection');
 		expect(page.data.map((r) => r.source_id)).toEqual([null]);

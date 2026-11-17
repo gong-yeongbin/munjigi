@@ -8,7 +8,7 @@ import { PrismaRejectedRequestRepository } from './prisma-rejected-request.repos
 describe('PrismaRejectedRequestRepository (통합)', () => {
 	const prisma = new PrismaService(new ConfigService({ DATABASE_URL: process.env.DATABASE_URL }));
 	const rejections = new PrismaRejectedRequestRepository(prisma);
-	let orgId: number;
+	let userId: number;
 	let projectId: number;
 	let otherProjectId: number;
 	let sourceA: number;
@@ -18,9 +18,9 @@ describe('PrismaRejectedRequestRepository (통합)', () => {
 		prisma.rejected_request.create({ data: { project_id, source_id, reason, headers: { 'x-signature': 'bad' }, size: 11 } });
 
 	beforeAll(async () => {
-		orgId = (await prisma.organization.create({ data: { name: 'rejected 테스트', plan: 'team' } })).id;
-		projectId = (await prisma.project.create({ data: { organization_id: orgId, name: 'a' } })).id;
-		otherProjectId = (await prisma.project.create({ data: { organization_id: orgId, name: 'b' } })).id;
+		userId = (await prisma.user.create({ data: { email: `rejected-${Date.now()}@test.munjigi.local`, name: 'rejected 테스트', plan: 'team' } })).id;
+		projectId = (await prisma.project.create({ data: { user_id: userId, name: 'a' } })).id;
+		otherProjectId = (await prisma.project.create({ data: { user_id: userId, name: 'b' } })).id;
 		const source = async (project: number) => (await prisma.source.create({ data: { project_id: project, slug: newSlug(), name: 's' } })).id;
 		[sourceA, sourceB] = [await source(projectId), await source(projectId)];
 
@@ -32,8 +32,8 @@ describe('PrismaRejectedRequestRepository (통합)', () => {
 
 	afterAll(async () => {
 		// source·rejected_request는 project를 지우면 같이 지워진다(FK cascade)
-		await prisma.project.deleteMany({ where: { organization_id: orgId } });
-		await prisma.organization.deleteMany({ where: { id: orgId } });
+		await prisma.project.deleteMany({ where: { user_id: userId } });
+		await prisma.user.delete({ where: { id: userId } });
 		await prisma.$disconnect();
 	});
 

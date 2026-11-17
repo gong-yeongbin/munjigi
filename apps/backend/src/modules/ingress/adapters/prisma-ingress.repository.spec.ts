@@ -12,7 +12,7 @@ describe('PrismaIngressRepository (통합)', () => {
 	const cipher = new CipherService(config);
 	const repository = new PrismaIngressRepository(prisma, cipher);
 	const SIGNATURE = { header: 'x-signature', encoding: 'hex', secret_encoding: 'utf8', signed_payload: '{body}', tolerance_sec: 300 };
-	let orgId: number;
+	let userId: number;
 	let projectId: number;
 	let sourceId: number;
 	let destinationIds: number[];
@@ -37,8 +37,8 @@ describe('PrismaIngressRepository (통합)', () => {
 	});
 
 	beforeAll(async () => {
-		orgId = (await prisma.organization.create({ data: { name: 'ingress 테스트', plan: 'team' } })).id;
-		projectId = (await prisma.project.create({ data: { organization_id: orgId, name: 'a' } })).id;
+		userId = (await prisma.user.create({ data: { email: `u-${Date.now().toString(36)}${Math.random().toString(36).slice(2)}@test.munjigi.local`, name: 'ingress 테스트', plan: 'team' } })).id;
+		projectId = (await prisma.project.create({ data: { user_id: userId, name: 'a' } })).id;
 		sourceId = (await prisma.source.create({ data: { project_id: projectId, slug, name: 'signed', signing_secret_enc: cipher.encrypt('whsec_plain'), signature_config: SIGNATURE } })).id;
 		const destination = () => prisma.destination.create({ data: { project_id: projectId, name: 'd', url: 'https://example.com' } });
 		destinationIds = [(await destination()).id, (await destination()).id];
@@ -47,8 +47,8 @@ describe('PrismaIngressRepository (통합)', () => {
 
 	afterAll(async () => {
 		// source·destination·event·delivery·rejected_request는 project를 지우면 같이 지워진다(FK cascade)
-		await prisma.project.deleteMany({ where: { organization_id: orgId } });
-		await prisma.organization.deleteMany({ where: { id: orgId } });
+		await prisma.project.deleteMany({ where: { user_id: userId } });
+		await prisma.user.deleteMany({ where: { id: userId } });
 		await prisma.$disconnect();
 	});
 
@@ -56,7 +56,7 @@ describe('PrismaIngressRepository (통합)', () => {
 		expect(await repository.findSourceBySlug(slug)).toEqual({
 			id: sourceId,
 			project_id: projectId,
-			organization_id: orgId,
+			user_id: userId,
 			plan: 'team',
 			suspended: false,
 			signing_secret: 'whsec_plain',
@@ -67,7 +67,7 @@ describe('PrismaIngressRepository (통합)', () => {
 	});
 
 	it('findSourceBySlug — 서명 설정이 없는 소스, 연결이 없는 소스, 정지된 프로젝트', async () => {
-		const suspended = await prisma.project.create({ data: { organization_id: orgId, name: 'suspended', suspended_at: new Date() } });
+		const suspended = await prisma.project.create({ data: { user_id: userId, name: 'suspended', suspended_at: new Date() } });
 		const open = await prisma.source.create({ data: { project_id: suspended.id, slug: newSlug(), name: 'open' } });
 
 		expect(await repository.findSourceBySlug(open.slug)).toMatchObject({ suspended: true, signing_secret: null, signature_config: null, connections: [] });

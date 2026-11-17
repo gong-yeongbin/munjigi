@@ -18,9 +18,9 @@ describe('PrismaRetentionRepository (통합)', () => {
 
 	// 플랜별 조직 하나에 project·source·destination·연결을 만들고, daysAgo일 전에 받은 event(delivery·attempt 포함)와 거부 기록을 하나씩 만든다
 	async function setup(plan: Plan, daysAgo: number[]) {
-		const org = await prisma.organization.create({ data: { name: `retention ${plan}`, plan } });
+		const org = await prisma.user.create({ data: { email: `u-${Date.now().toString(36)}${Math.random().toString(36).slice(2)}@test.munjigi.local`, name: `retention ${plan}`, plan } });
 		orgs.push(org.id);
-		const project = await prisma.project.create({ data: { organization_id: org.id, name: 'p' } });
+		const project = await prisma.project.create({ data: { user_id: org.id, name: 'p' } });
 		const source = await prisma.source.create({ data: { project_id: project.id, slug: newSlug(), name: 's' } });
 		const destination = await prisma.destination.create({ data: { project_id: project.id, name: 'd', url: 'https://example.com' } });
 		const events = new Map<number, bigint>();
@@ -43,8 +43,8 @@ describe('PrismaRetentionRepository (통합)', () => {
 		]);
 
 	afterAll(async () => {
-		await prisma.project.deleteMany({ where: { organization_id: { in: orgs } } });
-		await prisma.organization.deleteMany({ where: { id: { in: orgs } } });
+		await prisma.project.deleteMany({ where: { user_id: { in: orgs } } });
+		await prisma.user.deleteMany({ where: { id: { in: orgs } } });
 		await prisma.$disconnect();
 	});
 

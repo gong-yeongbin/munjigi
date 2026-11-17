@@ -14,13 +14,13 @@ export class PrismaDestinationRepository implements DestinationRepository {
 
 	create(projectId: number, data: DestinationWrite, check: CreateCheck): Promise<DestinationRecord> {
 		return this.prisma.$transaction(async (tx) => {
-			// 같은 조직의 생성을 줄 세운다. 개수를 센 뒤 만들기 전에 다른 요청이 끼어들지 못한다
-			await tx.$queryRaw`SELECT o.id FROM organization o JOIN project p ON p.organization_id = o.id WHERE p.id = ${projectId} FOR UPDATE OF o`;
+			// 같은 user의 생성을 줄 세운다. 개수를 센 뒤 만들기 전에 다른 요청이 끼어들지 못한다
+			await tx.$queryRaw`SELECT u.id FROM "user" u JOIN project p ON p.user_id = u.id WHERE p.id = ${projectId} FOR UPDATE OF u`;
 			const [project, count] = await Promise.all([
-				tx.project.findUniqueOrThrow({ where: { id: projectId }, select: { organization: { select: { plan: true } } } }),
+				tx.project.findUniqueOrThrow({ where: { id: projectId }, select: { user: { select: { plan: true } } } }),
 				tx.destination.count({ where: { project_id: projectId } }),
 			]);
-			check({ plan: project.organization.plan, count });
+			check({ plan: project.user.plan, count });
 			return this.toRecord(await tx.destination.create({ data: { project_id: projectId, ...this.columns(data) } }));
 		});
 	}

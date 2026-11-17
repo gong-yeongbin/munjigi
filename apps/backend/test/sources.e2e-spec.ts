@@ -4,20 +4,19 @@ import { createTestApp, errorOf, type LoggedIn, type TestApp } from './support';
 describe('sources (e2e)', () => {
 	let t: TestApp;
 	let owner: LoggedIn;
-	let member: LoggedIn;
 	let free: LoggedIn;
 	let projectId: number;
 	let otherProjectId: number;
 	let freeProjectId: number;
 
 	const auth = (who: LoggedIn) => ({ Authorization: `Bearer ${who.token}` });
-	const path = (who: LoggedIn, project: number, sourceId?: number | string) => `/orgs/${who.org_id}/projects/${project}/sources${sourceId ? `/${sourceId}` : ''}`;
-	// org는 경로의 조직, as는 호출하는 사람
+	const path = (project: number, sourceId?: number | string) => `/projects/${project}/sources${sourceId ? `/${sourceId}` : ''}`;
+	// org는 project의 소유자(기본 owner), as는 호출하는 사람(기본 org)
 	const create = (body: object, opts: { org?: LoggedIn; as?: LoggedIn; project?: number } = {}) => {
 		const org = opts.org ?? owner;
 		return t
 			.http()
-			.post(path(org, opts.project ?? projectId))
+			.post(path(opts.project ?? projectId))
 			.set(auth(opts.as ?? org))
 			.send(body);
 	};
@@ -25,12 +24,11 @@ describe('sources (e2e)', () => {
 
 	beforeAll(async () => {
 		t = await createTestApp();
-		[owner, member, free] = [await t.login(), await t.login(), await t.login()];
-		await t.prisma.organization.update({ where: { id: owner.org_id }, data: { plan: 'team' } });
-		await t.prisma.organization_member.create({ data: { organization_id: owner.org_id, user_id: member.user_id, role: 'member' } });
-		projectId = (await t.prisma.project.create({ data: { organization_id: owner.org_id, name: 'shop' } })).id;
-		otherProjectId = (await t.prisma.project.create({ data: { organization_id: owner.org_id, name: 'blog' } })).id;
-		freeProjectId = (await t.prisma.project.create({ data: { organization_id: free.org_id, name: 'trial' } })).id;
+		[owner, free] = [await t.login(), await t.login()];
+		await t.prisma.user.update({ where: { id: owner.user_id }, data: { plan: 'team' } });
+		projectId = (await t.prisma.project.create({ data: { user_id: owner.user_id, name: 'shop' } })).id;
+		otherProjectId = (await t.prisma.project.create({ data: { user_id: owner.user_id, name: 'blog' } })).id;
+		freeProjectId = (await t.prisma.project.create({ data: { user_id: free.user_id, name: 'trial' } })).id;
 	});
 
 	afterAll(() => t.close());
@@ -40,7 +38,7 @@ describe('sources (e2e)', () => {
 		expect(created).toMatchObject({ project_id: projectId, name: 'toss', signature_config: null });
 		expect(created.slug).toMatch(/^[a-z0-9]{20}$/);
 
-		const rotated = (await t.http().post(`${path(owner, projectId, created.id)}/rotate-slug`).set(auth(owner)).expect(200)).body as SourceDto;
+		const rotated = (await t.http().post(`${path(projectId, created.id)}/rotate-slug`).set(auth(owner)).expect(200)).body as SourceDto;
 		expect(rotated).toMatchObject({ id: created.id, name: 'toss' });
 		expect(rotated.slug).toMatch(/^[a-z0-9]{20}$/);
 		expect(rotated.slug).not.toBe(created.slug);
@@ -69,8 +67,8 @@ describe('sources (e2e)', () => {
 		expect(row.signing_secret_enc).toBeTruthy();
 		expect(row.signing_secret_enc).not.toContain('whsec_plain_value');
 
-		const got = await t.http().get(path(owner, projectId, created.id)).set(auth(owner)).expect(200);
-		const listed = await t.http().get(path(owner, projectId)).set(auth(owner)).expect(200);
+		const got = await t.http().get(path(projectId, created.id)).set(auth(owner)).expect(200);
+		const listed = await t.http().get(path(projectId)).set(auth(owner)).expect(200);
 		for (const text of [got.text, listed.text]) expect(text).not.toMatch(/signing_secret|whsec_plain_value/);
 	});
 
@@ -87,7 +85,7 @@ describe('sources (e2e)', () => {
 
 	it('수정 — 이름만, 시크릿 교체, 검증 끄기. 하나만 남기면 400', async () => {
 		const created = (await create({ name: 'portone', signing_secret: 'old', signature_config: CONFIG }).expect(201)).body as SourceDto;
-		const patch = (body: object) => t.http().patch(path(owner, projectId, created.id)).set(auth(owner)).send(body);
+		const patch = (body: object) => t.http().patch(path(projectId, created.id)).set(auth(owner)).send(body);
 		const secret = async () => (await t.prisma.source.findUniqueOrThrow({ where: { id: created.id } })).signing_secret_enc;
 		const before = await secret();
 
@@ -102,47 +100,47 @@ describe('sources (e2e)', () => {
 		expect(await secret()).toBeNull();
 	});
 
-	it('member도 만들고·바꾸고·지운다. 지운 뒤에는 404 source_not_found', async () => {
-		const created = (await create({ name: 'by member' }, { as: member }).expect(201)).body as SourceDto;
-		await t.http().patch(path(owner, projectId, created.id)).set(auth(member)).send({ name: 'renamed' }).expect(200);
-		await t.http().delete(path(owner, projectId, created.id)).set(auth(member)).expect(204);
+	it('만들고·바꾸고·지운다. 지운 뒤에는 404 source_not_found', async () => {
+		const created = (await create({ name: 'by owner' }, { as: owner }).expect(201)).body as SourceDto;
+		await t.http().patch(path(projectId, created.id)).set(auth(owner)).send({ name: 'renamed' }).expect(200);
+		await t.http().delete(path(projectId, created.id)).set(auth(owner)).expect(204);
 
-		const response = await t.http().get(path(owner, projectId, created.id)).set(auth(member)).expect(404);
+		const response = await t.http().get(path(projectId, created.id)).set(auth(owner)).expect(404);
 		expect(errorOf(response).code).toBe('source_not_found');
 	});
 
-	it('free 조직은 project당 3개까지, 4번째는 403 plan_limit', async () => {
+	it('free user는 project당 3개까지, 4번째는 403 plan_limit', async () => {
 		for (const name of ['a', 'b', 'c']) await create({ name }, { org: free, project: freeProjectId }).expect(201);
 		const response = await create({ name: 'd' }, { org: free, project: freeProjectId }).expect(403);
 		expect(errorOf(response).code).toBe('plan_limit');
 	});
 
-	it('같은 조직의 다른 project에서는 404 source_not_found, 타 조직 project는 404 project_not_found', async () => {
+	it('같은 user의 다른 project에서는 404 source_not_found, 남의 project는 404 project_not_found', async () => {
 		const created = (await create({ name: 'scoped' }).expect(201)).body as SourceDto;
 
 		// 요청은 하나씩 만든다. supertest 요청을 미리 여러 개 만들어 두면 먼저 끝난 요청이 서버를 닫는다
 		for (const request of [
-			() => t.http().get(path(owner, otherProjectId, created.id)),
-			() => t.http().patch(path(owner, otherProjectId, created.id)).send({ name: 'x' }),
-			() => t.http().post(`${path(owner, otherProjectId, created.id)}/rotate-slug`),
-			() => t.http().delete(path(owner, otherProjectId, created.id)),
+			() => t.http().get(path(otherProjectId, created.id)),
+			() => t.http().patch(path(otherProjectId, created.id)).send({ name: 'x' }),
+			() => t.http().post(`${path(otherProjectId, created.id)}/rotate-slug`),
+			() => t.http().delete(path(otherProjectId, created.id)),
 		]) {
 			expect(errorOf(await request().set(auth(owner)).expect(404)).code).toBe('source_not_found');
 		}
 
-		const foreign = await t.http().get(path(owner, freeProjectId)).set(auth(owner)).expect(404);
+		const foreign = await t.http().get(path(freeProjectId)).set(auth(owner)).expect(404);
 		expect(errorOf(foreign).code).toBe('project_not_found');
-		await t.http().get(path(free, projectId)).set(auth(free)).expect(404);
+		await t.http().get(path(projectId)).set(auth(free)).expect(404);
 	});
 
 	it('토큰이 없으면 401', async () => {
-		await t.http().get(path(owner, projectId)).expect(401);
+		await t.http().get(path(projectId)).expect(401);
 	});
 
 	it('목록 커서로 두 페이지 순회 후 next_cursor null', async () => {
 		for (const name of ['p1', 'p2', 'p3']) await create({ name }, { project: otherProjectId }).expect(201);
-		const first = (await t.http().get(`${path(owner, otherProjectId)}?limit=2`).set(auth(member)).expect(200)).body as SourcePageDto;
-		const second = (await t.http().get(`${path(owner, otherProjectId)}?limit=2&cursor=${first.next_cursor}`).set(auth(member)).expect(200)).body as SourcePageDto;
+		const first = (await t.http().get(`${path(otherProjectId)}?limit=2`).set(auth(owner)).expect(200)).body as SourcePageDto;
+		const second = (await t.http().get(`${path(otherProjectId)}?limit=2&cursor=${first.next_cursor}`).set(auth(owner)).expect(200)).body as SourcePageDto;
 		expect([...first.data, ...second.data].map((s) => s.name)).toEqual(['p3', 'p2', 'p1']);
 		expect(second.next_cursor).toBeNull();
 	});

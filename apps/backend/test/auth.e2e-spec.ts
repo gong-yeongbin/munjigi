@@ -5,7 +5,7 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { AppModule } from '@/app.module';
 import type { ErrorBody } from '@/common/http/http-exception.filter';
-import { Actor, Roles } from '@/common/auth/decorators';
+import { Actor, Authenticated } from '@/common/auth/decorators';
 import { configureApp } from '@/common/configure-app';
 import { PrismaService } from '@/infra/prisma/prisma.service';
 import { GOOGLE_ID_TOKEN_VERIFIER, type GoogleIdTokenVerifier, type GoogleProfile } from '@/modules/auth/ports/google-id-token.verifier';
@@ -18,15 +18,15 @@ class ProbeController {
 		return {};
 	}
 
-	@Roles()
+	@Authenticated()
 	@Get('me')
 	me(@Actor() actor: Actor) {
 		return actor;
 	}
 
-	@Roles('admin')
-	@Get('orgs/:orgId')
-	org(@Actor() actor: Actor) {
+	@Authenticated()
+	@Get('projects/:projectId')
+	project(@Actor() actor: Actor) {
 		return actor;
 	}
 }
@@ -58,9 +58,8 @@ describe('auth (e2e)', () => {
 		return (response.body as { access_token: string }).access_token;
 	}
 
-	async function personalOrgId(idToken: string): Promise<number> {
-		const member = await prisma.organization_member.findFirstOrThrow({ where: { user: { email: profiles.get(idToken)!.email } } });
-		return member.organization_id;
+	async function userId(idToken: string): Promise<number> {
+		return (await prisma.user.findUniqueOrThrow({ where: { email: profiles.get(idToken)!.email } })).id;
 	}
 
 	beforeAll(async () => {
@@ -79,27 +78,24 @@ describe('auth (e2e)', () => {
 	afterAll(async () => {
 		const users = await prisma.user.findMany({ where: { email: { in: emails } }, select: { id: true } });
 		const userIds = users.map((u) => u.id);
-		const orgs = await prisma.organization_member.findMany({ where: { user_id: { in: userIds }, role: 'owner' }, select: { organization_id: true } });
-		const orgIds = orgs.map((o) => o.organization_id);
-		await prisma.organization_member.deleteMany({ where: { OR: [{ user_id: { in: userIds } }, { organization_id: { in: orgIds } }] } });
-		await prisma.organization.deleteMany({ where: { id: { in: orgIds } } });
+		await prisma.project.deleteMany({ where: { user_id: { in: userIds } } });
 		await prisma.user_identity.deleteMany({ where: { user_id: { in: userIds } } });
 		await prisma.user.deleteMany({ where: { id: { in: userIds } } });
 		await app.close();
 	});
 
 	describe('POST /auth/google', () => {
-		it('첫 로그인 시 organization(free)·user_identity·member(owner)를 만들고, 두 번째는 다시 만들지 않는다', async () => {
+		it('첫 로그인 시 user(free)·user_identity를 만들고, 두 번째는 다시 만들지 않는다', async () => {
 			const idToken = newGoogleUser();
 			const { sub, email } = profiles.get(idToken)!;
 
 			await login(idToken);
 			await login(idToken);
 
-			const user = await prisma.user.findUniqueOrThrow({ where: { email }, include: { identities: true, memberships: { include: { organization: true } } } });
+			const user = await prisma.user.findUniqueOrThrow({ where: { email }, include: { identities: true } });
+			expect(user.plan).toBe('free');
 			expect(user.identities).toMatchObject([{ provider: 'google', provider_user_id: sub }]);
-			expect(user.memberships).toHaveLength(1);
-			expect(user.memberships[0]).toMatchObject({ role: 'owner', organization: { plan: 'free' } });
+			expect(await prisma.user.count({ where: { email } })).toBe(1);
 		});
 
 		it('구글 토큰이 유효하지 않으면 401 unauthenticated', async () => {
@@ -115,40 +111,35 @@ describe('auth (e2e)', () => {
 	});
 
 	describe('전역 가드', () => {
-		it('@Public·@Roles가 없는 라우트는 로그인해도 403 (deny-by-default)', async () => {
+		it('@Public·@Authenticated가 없는 라우트는 로그인해도 403 (deny-by-default)', async () => {
 			const token = await login(newGoogleUser());
 			const response = await request(app.getHttpServer()).get('/e2e-probe/bare').set('Authorization', `Bearer ${token}`).expect(403);
 			expect(errorOf(response).code).toBe('forbidden');
 		});
 
-		it('@Roles() 라우트는 토큰이 없으면 401, 있으면 조직 없는 주체', async () => {
+		it('@Authenticated 라우트는 토큰이 없으면 401, 있으면 project 없는 주체', async () => {
 			await request(app.getHttpServer()).get('/e2e-probe/me').expect(401);
 
-			const token = await login(newGoogleUser());
+			const idToken = newGoogleUser();
+			const token = await login(idToken);
 			const response = await request(app.getHttpServer()).get('/e2e-probe/me').set('Authorization', `Bearer ${token}`).expect(200);
-			expect(response.body).toMatchObject({ kind: 'user', org_id: null, role: null });
+			expect(response.body).toEqual({ kind: 'user', user_id: await userId(idToken), project_id: null });
 		});
 
-		it('내 조직은 통과, 타 조직 리소스는 404, 소속이지만 role이 부족하면 403', async () => {
+		it('내 project는 통과하고 project 주체를 붙인다. 남의 project는 404 project_not_found', async () => {
 			const alice = newGoogleUser();
 			const bob = newGoogleUser();
 			const aliceToken = await login(alice);
 			await login(bob);
-			const aliceOrg = await personalOrgId(alice);
-			const bobOrg = await personalOrgId(bob);
+			const mine = await prisma.project.create({ data: { user_id: await userId(alice), name: 'mine' } });
+			const theirs = await prisma.project.create({ data: { user_id: await userId(bob), name: 'theirs' } });
 
-			const own = await request(app.getHttpServer()).get(`/e2e-probe/orgs/${aliceOrg}`).set('Authorization', `Bearer ${aliceToken}`).expect(200);
-			expect(own.body).toMatchObject({ org_id: aliceOrg, role: 'owner' });
+			const own = await request(app.getHttpServer()).get(`/e2e-probe/projects/${mine.id}`).set('Authorization', `Bearer ${aliceToken}`).expect(200);
+			expect(own.body).toEqual({ kind: 'user', user_id: await userId(alice), project_id: mine.id });
 
-			const other = await request(app.getHttpServer()).get(`/e2e-probe/orgs/${bobOrg}`).set('Authorization', `Bearer ${aliceToken}`).expect(404);
-			expect(errorOf(other).code).toBe('organization_not_found');
-
-			const aliceUser = await prisma.user.findUniqueOrThrow({ where: { email: profiles.get(alice)!.email } });
-			// free는 멤버 1명 상한이라 2명이 되면 plan_limit이 먼저 걸린다. role 검사만 보려고 team으로 올린다
-			await prisma.organization.update({ where: { id: bobOrg }, data: { plan: 'team' } });
-			await prisma.organization_member.create({ data: { organization_id: bobOrg, user_id: aliceUser.id, role: 'member' } });
-			const member = await request(app.getHttpServer()).get(`/e2e-probe/orgs/${bobOrg}`).set('Authorization', `Bearer ${aliceToken}`).expect(403);
-			expect(errorOf(member).code).toBe('forbidden');
+			const other = await request(app.getHttpServer()).get(`/e2e-probe/projects/${theirs.id}`).set('Authorization', `Bearer ${aliceToken}`).expect(404);
+			expect(errorOf(other).code).toBe('project_not_found');
+			await request(app.getHttpServer()).get('/e2e-probe/projects/abc').set('Authorization', `Bearer ${aliceToken}`).expect(404);
 		});
 	});
 });

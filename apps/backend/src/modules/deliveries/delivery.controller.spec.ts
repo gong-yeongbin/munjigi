@@ -10,7 +10,7 @@ describe('DeliveryController', () => {
 		cancel: vi.fn().mockResolvedValue('canceled'),
 	};
 	const controller = new DeliveryController(service as unknown as DeliveryService);
-	const project = { orgId: 1, projectId: 10 };
+	const project = { projectId: 10 };
 	const delivery = { ...project, deliveryId: '345' };
 
 	it('경로·쿼리·본문을 service에 그대로 넘긴다. id는 BigInt로 바꾼다', async () => {

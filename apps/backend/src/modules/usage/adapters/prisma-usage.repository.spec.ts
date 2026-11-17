@@ -7,18 +7,18 @@ import { PrismaUsageRepository } from './prisma-usage.repository';
 describe('PrismaUsageRepository (통합)', () => {
 	const prisma = new PrismaService(new ConfigService({ DATABASE_URL: process.env.DATABASE_URL }));
 	const repo = new PrismaUsageRepository(prisma);
-	let orgId: number;
+	let userId: number;
 	let other: number;
 	let shop: number;
 	let blog: number;
 
 	beforeAll(async () => {
 		await prisma.onModuleInit();
-		orgId = (await prisma.organization.create({ data: { name: `usage-${randomUUID()}`, plan: 'team' } })).id;
-		other = (await prisma.organization.create({ data: { name: `usage-other-${randomUUID()}`, plan: 'free' } })).id;
-		shop = (await prisma.project.create({ data: { organization_id: orgId, name: 'shop' } })).id;
-		blog = (await prisma.project.create({ data: { organization_id: orgId, name: 'blog' } })).id;
-		const otherProject = (await prisma.project.create({ data: { organization_id: other, name: 'x' } })).id;
+		userId = (await prisma.user.create({ data: { email: `usage-${randomUUID()}@test.munjigi.local`, name: 'usage', plan: 'team' } })).id;
+		other = (await prisma.user.create({ data: { email: `usage-other-${randomUUID()}@test.munjigi.local`, name: 'other', plan: 'free' } })).id;
+		shop = (await prisma.project.create({ data: { user_id: userId, name: 'shop' } })).id;
+		blog = (await prisma.project.create({ data: { user_id: userId, name: 'blog' } })).id;
+		const otherProject = (await prisma.project.create({ data: { user_id: other, name: 'x' } })).id;
 		const event = (project_id: number, received_at: string, key: string) => ({ project_id, idempotency_key: key, headers: {}, body: new Uint8Array(0), size: 0, received_at: new Date(received_at) });
 		await prisma.event.createMany({
 			data: [
@@ -32,18 +32,18 @@ describe('PrismaUsageRepository (통합)', () => {
 	});
 
 	afterAll(async () => {
-		await prisma.project.deleteMany({ where: { organization_id: { in: [orgId, other] } } });
-		await prisma.organization.deleteMany({ where: { id: { in: [orgId, other] } } });
+		await prisma.project.deleteMany({ where: { user_id: { in: [userId, other] } } });
+		await prisma.user.deleteMany({ where: { id: { in: [userId, other] } } });
 		await prisma.onModuleDestroy();
 	});
 
-	it('findPlan — 조직의 플랜. 없으면 null', async () => {
-		expect(await repo.findPlan(orgId)).toBe('team');
+	it('findPlan — user의 플랜. 없으면 null', async () => {
+		expect(await repo.findPlan(userId)).toBe('team');
 		expect(await repo.findPlan(0)).toBeNull();
 	});
 
-	it('countEventsByProject — 그 조직의 프로젝트만, since 이후 이벤트만, 없는 프로젝트는 0', async () => {
-		expect(await repo.countEventsByProject(orgId, new Date('2026-09-30T15:00:00Z'))).toEqual([
+	it('countEventsByProject — 그 user의 프로젝트만, since 이후 이벤트만, 없는 프로젝트는 0', async () => {
+		expect(await repo.countEventsByProject(userId, new Date('2026-09-30T15:00:00Z'))).toEqual([
 			{ project_id: shop, name: 'shop', event_count: 2 },
 			{ project_id: blog, name: 'blog', event_count: 0 },
 		]);

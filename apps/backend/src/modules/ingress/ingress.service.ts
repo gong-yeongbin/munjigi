@@ -89,7 +89,7 @@ export class IngressService {
 		}
 
 		// 저장보다 먼저 올리므로 같은 웹훅이 다시 와도 센다
-		const used = await this.counters.incrementUsage(source.organization_id, usagePeriod(webhook.now));
+		const used = await this.counters.incrementUsage(source.user_id, usagePeriod(webhook.now));
 		if (source.plan === 'free' && used > INCLUDED_EVENTS.free) return this.reject(source, 'usage_exceeded', webhook);
 
 		const contentType = webhook.headers['content-type'];

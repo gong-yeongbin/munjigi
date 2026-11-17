@@ -12,9 +12,6 @@ import { DestinationModule } from './modules/destinations/destination.module';
 import { EventModule } from './modules/events/event.module';
 import { HealthModule } from './modules/health/health.module';
 import { IngressModule } from './modules/ingress/ingress.module';
-import { InvitationModule } from './modules/invitations/invitation.module';
-import { MemberModule } from './modules/members/member.module';
-import { OrgModule } from './modules/orgs/org.module';
 import { ProjectModule } from './modules/projects/project.module';
 import { RejectedRequestModule } from './modules/rejected-requests/rejected-request.module';
 import { SourceModule } from './modules/sources/source.module';
@@ -31,9 +28,6 @@ import { UserModule } from './modules/users/user.module';
 		AuthModule,
 		HealthModule,
 		UserModule,
-		OrgModule,
-		MemberModule,
-		InvitationModule,
 		ProjectModule,
 		SourceModule,
 		UsageModule,

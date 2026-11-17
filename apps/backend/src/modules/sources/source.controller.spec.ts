@@ -11,7 +11,7 @@ describe('SourceController', () => {
 		remove: vi.fn().mockResolvedValue(undefined),
 	};
 	const controller = new SourceController(service as unknown as SourceService);
-	const project = { orgId: 1, projectId: 10 };
+	const project = { projectId: 10 };
 	const source = { ...project, sourceId: 7 };
 
 	it('경로·쿼리·본문을 service에 그대로 넘긴다', async () => {

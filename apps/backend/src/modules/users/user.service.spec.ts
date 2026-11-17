@@ -8,6 +8,8 @@ const USER: user = {
 	email: 'a@example.com',
 	name: 'A',
 	avatar_url: null,
+	plan: 'free',
+	is_admin: false,
 	created_at: new Date('2026-09-30T00:00:00Z'),
 	updated_at: new Date('2026-09-30T00:00:00Z'),
 };
