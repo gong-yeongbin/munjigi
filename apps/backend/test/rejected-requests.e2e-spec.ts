@@ -22,7 +22,7 @@ describe('rejected-requests (e2e)', () => {
 	beforeAll(async () => {
 		t = await createTestApp();
 		[owner, outsider] = [await t.login(), await t.login()];
-		await t.prisma.user.update({ where: { id: owner.user_id }, data: { plan: 'team' } });
+		await t.prisma.user.update({ where: { id: owner.user_id }, data: { plan: 'pro' } });
 		projectId = (await t.prisma.project.create({ data: { user_id: owner.user_id, name: 'shop' } })).id;
 		otherProjectId = (await t.prisma.project.create({ data: { user_id: owner.user_id, name: 'blog' } })).id;
 

@@ -8,8 +8,8 @@ const DAY = 24 * 60 * 60 * 1_000;
 
 // 플랜마다 "지울 수 있는 수"를 들고 있다가 부를 때마다 limit만큼 내준다
 class FakeRetention implements RetentionRepository {
-	events: Record<Plan, number> = { free: 0, team: 0, business: 0 };
-	rejections: Record<Plan, number> = { free: 0, team: 0, business: 0 };
+	events: Record<Plan, number> = { free: 0, pro: 0, business: 0 };
+	rejections: Record<Plan, number> = { free: 0, pro: 0, business: 0 };
 	calls: [string, Plan, Date, number][] = [];
 	fail = false;
 
@@ -41,21 +41,21 @@ describe('RetentionRunner', () => {
 		vi.useRealTimers();
 	});
 
-	it('플랜별 보존일(free 3·team 7·business 30) 전의 것을 1,000건씩 없을 때까지 지운다', async () => {
-		retention.events.team = 2_500;
+	it('플랜별 보존일(free 3·pro 7·business 30) 전의 것을 1,000건씩 없을 때까지 지운다', async () => {
+		retention.events.pro = 2_500;
 		retention.rejections.free = 1_000;
 
-		expect(await runner.run(NOW)).toEqual({ free: 1_000, team: 2_500, business: 0 });
+		expect(await runner.run(NOW)).toEqual({ free: 1_000, pro: 2_500, business: 0 });
 
 		const cutoffs = Object.fromEntries(retention.calls.map(([, plan, cutoff]) => [plan, cutoff])) as Record<Plan, Date>;
 		expect(cutoffs.free).toEqual(new Date(NOW.getTime() - 3 * DAY));
-		expect(cutoffs.team).toEqual(new Date(NOW.getTime() - 7 * DAY));
+		expect(cutoffs.pro).toEqual(new Date(NOW.getTime() - 7 * DAY));
 		expect(cutoffs.business).toEqual(new Date(NOW.getTime() - 30 * DAY));
-		// team event는 1,000·1,000·500으로 세 번, 거부 기록은 딱 1,000건이라 한 번 더 불러 0을 확인한다
-		expect(retention.calls.filter(([kind, plan]) => kind === 'event' && plan === 'team')).toHaveLength(3);
+		// pro event는 1,000·1,000·500으로 세 번, 거부 기록은 딱 1,000건이라 한 번 더 불러 0을 확인한다
+		expect(retention.calls.filter(([kind, plan]) => kind === 'event' && plan === 'pro')).toHaveLength(3);
 		expect(retention.calls.filter(([kind, plan]) => kind === 'rejection' && plan === 'free')).toHaveLength(2);
 		expect(retention.calls.every(([, , , limit]) => limit === BATCH)).toBe(true);
-		expect(retention.events.team).toBe(0);
+		expect(retention.events.pro).toBe(0);
 	});
 
 	it('켜면 바로 한 번 돌고 매시간 다시 돈다. 앞 실행이 안 끝났으면 건너뛰고, 던져도 죽지 않는다', async () => {

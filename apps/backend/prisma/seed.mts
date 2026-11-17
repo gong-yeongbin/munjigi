@@ -24,7 +24,7 @@ function encrypt(plain: string): string {
 const ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
 const newSlug = (): string => Array.from({ length: 20 }, () => ALPHABET[randomInt(ALPHABET.length)]).join('');
 
-// 시드 유저. team 플랜이라 상한에 걸리지 않고, 서비스 관리자(is_admin)라 관리자 경로를 로컬에서 바로 볼 수 있다
+// 시드 유저. pro 플랜이라 상한에 걸리지 않고, 서비스 관리자(is_admin)라 관리자 경로를 로컬에서 바로 볼 수 있다
 async function seedAccount(): Promise<void> {
 	if (await prisma.user.findUnique({ where: { email: SEED_EMAIL } })) {
 		console.log('시드 유저가 이미 있어 계정 시드는 건너뜁니다.');
@@ -35,13 +35,13 @@ async function seedAccount(): Promise<void> {
 		data: {
 			email: SEED_EMAIL,
 			name: '시드 유저',
-			plan: 'team',
+			plan: 'pro',
 			is_admin: true,
 			identities: { create: { provider: 'google', provider_user_id: 'seed-google-sub' } },
 		},
 	});
 
-	console.log('계정 시드 완료: 유저 1(team)');
+	console.log('계정 시드 완료: 유저 1(pro)');
 }
 
 // 계정 시드와 따로 멱등하게 둔다. 계정만 시드된 DB에도 다음 실행 때 들어간다.

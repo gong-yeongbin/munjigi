@@ -1,13 +1,10 @@
 import { cn } from 'cn';
 import type { ReactNode } from 'react';
 import { StatusTag } from '@/components/StatusTag';
-import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 // 랜딩에 올리는 실제 화면 조각. 대시보드와 같은 컴포넌트·같은 밀도(행 42px·본문 13px)로 그린다.
 // 데이터는 예시지만 숫자·상태는 제품이 실제로 내는 값만 쓴다
-
-export const SOURCE_URL = 'https://munjigi.example/in/9f3kq2x7wd1m';
 
 const ROWS = [
 	{ at: '방금', source: 'toss-payments', req: 'POST /webhooks/pay', size: '1,204 B', status: 'pending' },
@@ -55,49 +52,6 @@ export function EventsFragment({ rows = ROWS.length, className }: { rows?: numbe
 							<TableCell>
 								<StatusTag status={row.status} />
 							</TableCell>
-						</TableRow>
-					))}
-				</TableBody>
-			</Table>
-		</Panel>
-	);
-}
-
-// 소스를 만들면 받는 주소가 나온다
-export function SourceFragment() {
-	return (
-		<Panel label="소스 만들기 예시" className="w-[480px] p-4">
-			<label className="block text-muted-foreground" htmlFor="landing-source-url">
-				받는 주소
-			</label>
-			<Input id="landing-source-url" readOnly value={SOURCE_URL} className="mt-1.5 h-9 text-[13px]" />
-			<p className="mt-2 text-muted-foreground">서명 검증 켜짐 · 토스페이먼츠 결제 웹훅</p>
-		</Panel>
-	);
-}
-
-// 전달 한 건의 시도 기록. 셋째 응답으로 폭을 넓혀 보여 준다
-const ATTEMPTS = [
-	{ n: 1, at: '14:02:11', result: '503 Service Unavailable', next: '5분 뒤 다시' },
-	{ n: 2, at: '14:07:12', result: '503 Service Unavailable', next: '10분 뒤 다시' },
-	{ n: 3, at: '14:17:14', result: '200 OK', next: '끝' },
-];
-export function AttemptsFragment() {
-	return (
-		<Panel label="전달 시도 예시" className="w-[760px]">
-			<div className="flex items-center gap-3 border-b px-4 py-3">
-				<span className="font-medium">전달 #900 → api.shop.example</span>
-				<StatusTag status="succeeded" />
-				<span className="ml-auto text-muted-foreground">2배씩 · 5분 · 9회</span>
-			</div>
-			<Table>
-				<TableBody>
-					{ATTEMPTS.map((a) => (
-						<TableRow key={a.n} className="h-[42px]">
-							<TableCell className="w-[80px]">시도 {a.n}</TableCell>
-							<TableCell className="w-[110px] text-muted-foreground">{a.at}</TableCell>
-							<TableCell className={a.result.startsWith('2') ? 'text-ok' : 'text-bad'}>{a.result}</TableCell>
-							<TableCell className="text-right text-muted-foreground">{a.next}</TableCell>
 						</TableRow>
 					))}
 				</TableBody>

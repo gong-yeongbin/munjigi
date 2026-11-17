@@ -36,9 +36,9 @@ export const CONNECTIONS: Connection[] = [
 	{ id: 2, source_id: 7, destination_id: 99, retry_strategy: 'linear', retry_interval_ms: 60000, retry_count: 3, paused_at: '2026-10-10T00:00:00.000Z', created_at: '2026-10-01T00:00:00.000Z', updated_at: '2026-10-10T00:00:00.000Z' },
 ];
 
-export const ME: Me = { id: 1, email: 'seed@munjigi.local', name: '시드', avatar_url: null, plan: 'team', is_admin: false, created_at: '2026-09-01T00:00:00.000Z', updated_at: '2026-09-01T00:00:00.000Z' };
+export const ME: Me = { id: 1, email: 'seed@munjigi.local', name: '시드', avatar_url: null, plan: 'pro', is_admin: false, created_at: '2026-09-01T00:00:00.000Z', updated_at: '2026-09-01T00:00:00.000Z' };
 
-export const USAGE: Usage = { period: '202610', period_start: '2026-09-30T15:00:00.000Z', plan: 'team', included: 10000, used: 1284, projects: [{ project_id: 10, name: 'shop', event_count: 812 }, { project_id: 11, name: 'blog', event_count: 0 }] };
+export const USAGE: Usage = { period: '202610', period_start: '2026-09-30T15:00:00.000Z', plan: 'pro', included: 10000, used: 1284, projects: [{ project_id: 10, name: 'shop', event_count: 812 }, { project_id: 11, name: 'blog', event_count: 0 }] };
 
 export const REJECTED: RejectedRequest[] = [
 	{ id: '51', project_id: 10, source_id: 7, reason: 'signature_mismatch', headers: { 'x-signature': 'bad' }, size: 11, received_at: '2026-10-15T02:00:00.000Z' },

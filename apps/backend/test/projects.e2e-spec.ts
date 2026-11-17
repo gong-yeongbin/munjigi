@@ -13,7 +13,7 @@ describe('projects (e2e)', () => {
 	beforeAll(async () => {
 		t = await createTestApp();
 		[owner, outsider] = [await t.login(), await t.login()];
-		await t.prisma.user.update({ where: { id: owner.user_id }, data: { plan: 'team' } });
+		await t.prisma.user.update({ where: { id: owner.user_id }, data: { plan: 'pro' } });
 	});
 
 	afterAll(() => t.close());
@@ -50,7 +50,7 @@ describe('projects (e2e)', () => {
 		expect(errorOf(dup).code).toBe('project_conflict');
 		await t.http().patch(path(other.id)).set(auth(owner)).send({ name: 'PAYMENTS' }).expect(409);
 		// outsider는 free라 이미 1개가 있어 상한에 걸리므로 team으로 올려서 본다
-		await t.prisma.user.update({ where: { id: outsider.user_id }, data: { plan: 'team' } });
+		await t.prisma.user.update({ where: { id: outsider.user_id }, data: { plan: 'pro' } });
 		await create(outsider, 'payments').expect(201);
 
 		// 아래 목록 테스트가 owner의 project를 이름으로 확인하므로 여기서 만든 것은 지운다

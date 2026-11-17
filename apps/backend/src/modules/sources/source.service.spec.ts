@@ -8,7 +8,7 @@ const CONFIG = { header: 'x-signature', encoding: 'hex' as const, secret_encodin
 
 // port를 in-memory fake로 둔다. 시크릿은 평문 그대로 들고 있는다(암호화는 adapter 몫)
 class FakeSources implements SourceRepository {
-	plan: Plan = 'team';
+	plan: Plan = 'pro';
 	rows: (SourceView & { signing_secret: string | null })[] = [];
 	nextId = 1;
 
@@ -85,7 +85,7 @@ describe('SourceService', () => {
 		expect(await errorOf(service.create(PROJECT, { name: 'd' }))).toMatchObject({ type: ForbiddenException, code: 'plan_limit' });
 		await service.create(PROJECT + 1, { name: 'other project' });
 
-		repo.plan = 'team';
+		repo.plan = 'pro';
 		await service.create(PROJECT, { name: 'd' });
 		expect(repo.rows).toHaveLength(5);
 	});

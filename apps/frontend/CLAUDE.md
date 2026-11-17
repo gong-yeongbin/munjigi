@@ -13,7 +13,7 @@ src/
   index.css        Tailwind + 색·글꼴 토큰(CSS 변수). 랜딩과 대시보드가 같이 쓴다. 다크 모드 없음
   api/             axios 인스턴스 + 엔드포인트별 함수(events.ts, deliveries.ts …)
   auth/            토큰 보관, 로그인 상태, 보호 라우트
-  components/      두 화면 이상이 쓰는 것만 (StatusTag·Time·Faq)
+  components/      두 화면 이상이 쓰는 것만 (StatusTag·Time)
   components/ui/   shadcn이 복사해 준 컴포넌트. 우리 코드라 고쳐도 되고, 안 쓰는 export는 지운다
   layout/          공개 틀(PublicLayout)과 대시보드 셸(AppShell: 56px 아이콘 레일 + 48px 상단 바)
   pages/<화면>/    화면 하나에 폴더 하나. 전용 컴포넌트·테스트는 안에
@@ -53,8 +53,8 @@ src/
 ## 공개 범위
 
 `src/config.ts`의 `SCOPE`가 지금 공개하는 범위다(환경 변수가 아니라 코드 상수). `landing`은 `/`만 열리고 나머지 경로는 `/`로,
-상단 바는 워드마크만, 본문의 시작·요금 버튼은 "준비 중". `login`(지금 배포 값)은 랜딩과 `/login`만 열린다. 로그인 뒤에도 랜딩으로 가며
-상단에는 로그아웃만, 시작 버튼은 "준비 중"이다. `/app/*`는 `/`로. 기능이 준비되면 `all`로 바꾼다. 정적 호스팅은 모든 경로를 `index.html`로 돌려주는
+상단 바는 워드마크만, 본문의 시작·요금 버튼은 "준비 중". `login`(지금 배포 값)은 랜딩·`/login`·`/pricing`이 열리고 상단 메뉴는 요금 하나다(2026-11-17). 로그인 뒤에도 랜딩으로 가며
+상단에는 요금과 로그아웃만, 시작 버튼은 "준비 중"이다. `/app/*`는 `/`로. 기능이 준비되면 `all`로 바꾼다. 정적 호스팅은 모든 경로를 `index.html`로 돌려주는
 SPA fallback이 있어야 한다. 테스트의 `renderApp`은 기본 `all`이라 전체 화면을 검사한다.
 조직·멤버·초대 화면은 없다(2026-11-17 제거). 프로젝트는 로그인한 사용자가 직접 소유하고 API는 `/projects/:projectId/...`다.
 

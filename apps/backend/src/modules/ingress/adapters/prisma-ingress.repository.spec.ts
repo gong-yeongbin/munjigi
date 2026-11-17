@@ -37,7 +37,7 @@ describe('PrismaIngressRepository (통합)', () => {
 	});
 
 	beforeAll(async () => {
-		userId = (await prisma.user.create({ data: { email: `u-${Date.now().toString(36)}${Math.random().toString(36).slice(2)}@test.munjigi.local`, name: 'ingress 테스트', plan: 'team' } })).id;
+		userId = (await prisma.user.create({ data: { email: `u-${Date.now().toString(36)}${Math.random().toString(36).slice(2)}@test.munjigi.local`, name: 'ingress 테스트', plan: 'pro' } })).id;
 		projectId = (await prisma.project.create({ data: { user_id: userId, name: 'a' } })).id;
 		sourceId = (await prisma.source.create({ data: { project_id: projectId, slug, name: 'signed', signing_secret_enc: cipher.encrypt('whsec_plain'), signature_config: SIGNATURE } })).id;
 		const destination = () => prisma.destination.create({ data: { project_id: projectId, name: 'd', url: 'https://example.com' } });
@@ -57,7 +57,7 @@ describe('PrismaIngressRepository (통합)', () => {
 			id: sourceId,
 			project_id: projectId,
 			user_id: userId,
-			plan: 'team',
+			plan: 'pro',
 			suspended: false,
 			signing_secret: 'whsec_plain',
 			signature_config: SIGNATURE,

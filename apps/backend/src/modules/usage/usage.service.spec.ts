@@ -6,7 +6,7 @@ import { UsageService } from './usage.service';
 
 // port를 in-memory fake로 둔다. 근거는 context-notes.md "계층별 테스트"
 class FakeUsage implements UsageRepository {
-	plans = new Map<number, Plan>([[1, 'team']]);
+	plans = new Map<number, Plan>([[1, 'pro']]);
 	projects: ProjectUsage[] = [
 		{ project_id: 10, name: 'shop', event_count: 812 },
 		{ project_id: 11, name: 'blog', event_count: 0 },
@@ -38,7 +38,7 @@ describe('UsageService', () => {
 
 		const result = await service.get(1, new Date('2026-10-15T03:00:00Z'));
 
-		expect(result).toEqual({ period: '202610', period_start: new Date('2026-09-30T15:00:00Z'), plan: 'team', included: 10_000, used: 1284, projects: usage.projects });
+		expect(result).toEqual({ period: '202610', period_start: new Date('2026-09-30T15:00:00Z'), plan: 'pro', included: 10_000, used: 1284, projects: usage.projects });
 		expect(counters.asked).toEqual([1, '202610']);
 		expect(usage.since).toEqual(new Date('2026-09-30T15:00:00Z'));
 	});

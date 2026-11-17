@@ -4,7 +4,7 @@ import { api } from './client';
 export type Usage = {
 	period: string;
 	period_start: string;
-	plan: 'free' | 'team' | 'business';
+	plan: 'free' | 'pro' | 'business';
 	included: number;
 	used: number;
 	projects: { project_id: number; name: string; event_count: number }[];

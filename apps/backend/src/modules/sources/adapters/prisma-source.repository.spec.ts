@@ -19,7 +19,7 @@ describe('PrismaSourceRepository (통합)', () => {
 	let otherProjectId: number;
 
 	beforeAll(async () => {
-		userId = (await prisma.user.create({ data: { email: `source-${Date.now()}@test.munjigi.local`, name: 'source 테스트', plan: 'team' } })).id;
+		userId = (await prisma.user.create({ data: { email: `source-${Date.now()}@test.munjigi.local`, name: 'source 테스트', plan: 'pro' } })).id;
 		projectId = (await prisma.project.create({ data: { user_id: userId, name: 'a' } })).id;
 		otherProjectId = (await prisma.project.create({ data: { user_id: userId, name: 'b' } })).id;
 	});
@@ -36,7 +36,7 @@ describe('PrismaSourceRepository (통합)', () => {
 		const created = await sources.create(projectId, open('first'), (state) => void seen.push(state));
 		expect(created).toMatchObject({ project_id: projectId, name: 'first', signature_config: null });
 		expect(created).not.toHaveProperty('signing_secret_enc');
-		expect(seen).toEqual([{ plan: 'team', count: 0 }]);
+		expect(seen).toEqual([{ plan: 'pro', count: 0 }]);
 
 		await expect(
 			sources.create(projectId, open('rejected'), () => {

@@ -14,7 +14,7 @@ describe('PrismaUsageRepository (통합)', () => {
 
 	beforeAll(async () => {
 		await prisma.onModuleInit();
-		userId = (await prisma.user.create({ data: { email: `usage-${randomUUID()}@test.munjigi.local`, name: 'usage', plan: 'team' } })).id;
+		userId = (await prisma.user.create({ data: { email: `usage-${randomUUID()}@test.munjigi.local`, name: 'usage', plan: 'pro' } })).id;
 		other = (await prisma.user.create({ data: { email: `usage-other-${randomUUID()}@test.munjigi.local`, name: 'other', plan: 'free' } })).id;
 		shop = (await prisma.project.create({ data: { user_id: userId, name: 'shop' } })).id;
 		blog = (await prisma.project.create({ data: { user_id: userId, name: 'blog' } })).id;
@@ -38,7 +38,7 @@ describe('PrismaUsageRepository (통합)', () => {
 	});
 
 	it('findPlan — user의 플랜. 없으면 null', async () => {
-		expect(await repo.findPlan(userId)).toBe('team');
+		expect(await repo.findPlan(userId)).toBe('pro');
 		expect(await repo.findPlan(0)).toBeNull();
 	});
 

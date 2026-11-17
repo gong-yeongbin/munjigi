@@ -17,7 +17,7 @@ describe('PrismaProjectRepository (통합)', () => {
 	let otherUserId: number;
 
 	beforeAll(async () => {
-		userId = (await prisma.user.create({ data: { email: `u-${Date.now().toString(36)}${Math.random().toString(36).slice(2)}@test.munjigi.local`, name: 'project 테스트', plan: 'team' } })).id;
+		userId = (await prisma.user.create({ data: { email: `u-${Date.now().toString(36)}${Math.random().toString(36).slice(2)}@test.munjigi.local`, name: 'project 테스트', plan: 'pro' } })).id;
 		otherUserId = (await prisma.user.create({ data: { email: `u-${Date.now().toString(36)}${Math.random().toString(36).slice(2)}@test.munjigi.local`, name: '남의 계정' } })).id;
 	});
 
@@ -31,7 +31,7 @@ describe('PrismaProjectRepository (통합)', () => {
 		const seen: unknown[] = [];
 		const a = await create(userId, 'a', (state) => void seen.push(state));
 		expect(a).toMatchObject({ user_id: userId, name: 'a', suspended_at: null });
-		expect(seen).toEqual([{ plan: 'team', count: 0 }]);
+		expect(seen).toEqual([{ plan: 'pro', count: 0 }]);
 
 		await expect(
 			create(userId, 'rejected', () => {

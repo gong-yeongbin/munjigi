@@ -48,20 +48,20 @@ describe('PrismaRetentionRepository (통합)', () => {
 		await prisma.$disconnect();
 	});
 
-	it('team(보존 7일) 조직의 8일 전 이벤트는 지우고 7일 전 것은 남긴다. delivery·attempt·거부 기록도 같이 간다. free는 3일, business는 30일', async () => {
-		const team = await setup('team', [8, 6]);
+	it('pro(보존 7일) 조직의 8일 전 이벤트는 지우고 7일 전 것은 남긴다. delivery·attempt·거부 기록도 같이 간다. free는 3일, business는 30일', async () => {
+		const pro = await setup('pro', [8, 6]);
 		const free = await setup('free', [4, 2]);
 		const business = await setup('business', [31, 29]);
 
 		const deleted = await runner.run(now);
 		// 같은 DB의 다른 오래된 행이 섞일 수 있어 "최소 이만큼"으로 본다
-		expect(deleted.team).toBeGreaterThanOrEqual(2);
+		expect(deleted.pro).toBeGreaterThanOrEqual(2);
 		expect(deleted.free).toBeGreaterThanOrEqual(2);
 		expect(deleted.business).toBeGreaterThanOrEqual(2);
 
-		expect(await count(team.project)).toEqual([1, 1, 1, 1]);
-		expect(await prisma.event.findUnique({ where: { id: team.events.get(8)! } })).toBeNull();
-		expect(await prisma.event.findUnique({ where: { id: team.events.get(6)! } })).not.toBeNull();
+		expect(await count(pro.project)).toEqual([1, 1, 1, 1]);
+		expect(await prisma.event.findUnique({ where: { id: pro.events.get(8)! } })).toBeNull();
+		expect(await prisma.event.findUnique({ where: { id: pro.events.get(6)! } })).not.toBeNull();
 		expect(await count(free.project)).toEqual([1, 1, 1, 1]);
 		expect(await prisma.event.findUnique({ where: { id: free.events.get(4)! } })).toBeNull();
 		expect(await count(business.project)).toEqual([1, 1, 1, 1]);

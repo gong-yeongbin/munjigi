@@ -8,7 +8,7 @@ const URL = 'https://api.example.com/hooks';
 
 // port를 in-memory fake로 둔다. headers는 평문 그대로 들고 있는다(암호화는 adapter 몫)
 class FakeDestinations implements DestinationRepository {
-	plan: Plan = 'team';
+	plan: Plan = 'pro';
 	rows: DestinationRecord[] = [];
 	nextId = 1;
 
@@ -93,7 +93,7 @@ describe('DestinationService', () => {
 		expect(await errorOf(service.create(PROJECT, { name: 'd', url: URL }))).toEqual({ type: ForbiddenException, code: 'plan_limit' });
 		await service.create(PROJECT + 1, { name: 'other project', url: URL });
 
-		repo.plan = 'team';
+		repo.plan = 'pro';
 		await service.create(PROJECT, { name: 'd', url: URL });
 		expect(repo.rows).toHaveLength(5);
 	});

@@ -21,7 +21,7 @@ class FakeRepository implements IngressRepository {
 		id: 7,
 		project_id: 10,
 		user_id: USER,
-		plan: 'team',
+		plan: 'pro',
 		suspended: false,
 		signing_secret: null,
 		signature_config: null,

@@ -21,7 +21,7 @@ describe('PrismaEventRepository (통합)', () => {
 		prisma.event.create({ data: { project_id: project, source_id: source, idempotency_key: `k:${randomUUID()}`, method: 'PUT', path: '/a', query: 'q=1', headers: { 'x-v': '1' }, body: new Uint8Array(BODY), content_type: 'application/json', size: BODY.length, received_at } });
 
 	beforeAll(async () => {
-		userId = (await prisma.user.create({ data: { email: `u-${Date.now().toString(36)}${Math.random().toString(36).slice(2)}@test.munjigi.local`, name: 'event 테스트', plan: 'team' } })).id;
+		userId = (await prisma.user.create({ data: { email: `u-${Date.now().toString(36)}${Math.random().toString(36).slice(2)}@test.munjigi.local`, name: 'event 테스트', plan: 'pro' } })).id;
 		projectId = (await prisma.project.create({ data: { user_id: userId, name: 'a' } })).id;
 		otherProjectId = (await prisma.project.create({ data: { user_id: userId, name: 'b' } })).id;
 		sourceId = (await prisma.source.create({ data: { project_id: projectId, slug: newSlug(), name: 's' } })).id;
@@ -69,7 +69,7 @@ describe('PrismaEventRepository (통합)', () => {
 		expect(found!.event.id).toBe(ids[0]);
 		expect(Buffer.from(found!.event.body).equals(BODY)).toBe(true);
 		expect(found!.source).toEqual({ id: sourceId, connections: [{ id: connectionId, destination_id: destinationId }] });
-		expect(found!.project).toEqual({ user_id: userId, plan: 'team', suspended: false });
+		expect(found!.project).toEqual({ user_id: userId, plan: 'pro', suspended: false });
 		expect((await events.findForReplay(projectId, ids[3]!))!.source).toBeNull();
 		expect(await events.findForReplay(otherProjectId, ids[0]!)).toBeNull();
 	});

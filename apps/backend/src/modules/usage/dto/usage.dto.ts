@@ -18,8 +18,8 @@ export class UsageDto {
 	@ApiProperty({ description: '그 달의 시작(KST 1일 0시)', example: '2026-09-30T15:00:00.000Z' })
 	period_start: Date;
 
-	@ApiProperty({ enum: ['free', 'team', 'business'], example: 'team' })
-	plan: 'free' | 'team' | 'business';
+	@ApiProperty({ enum: ['free', 'pro', 'business'], example: 'pro' })
+	plan: 'free' | 'pro' | 'business';
 
 	@ApiProperty({ description: '플랜에 포함된 월 이벤트 수', example: 10000 })
 	included: number;

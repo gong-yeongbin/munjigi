@@ -7,7 +7,7 @@ const USER = 1;
 
 // port를 in-memory fake로 둔다. 근거는 context-notes.md "계층별 테스트".
 class FakeProjects implements ProjectRepository {
-	plan: Plan = 'team';
+	plan: Plan = 'pro';
 	rows: ProjectView[] = [];
 	// 서명 키는 평문 그대로 들고 있는다(암호화는 adapter 몫). 키가 없는 예전 project는 null
 	secrets = new Map<number, string | null>();

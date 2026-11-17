@@ -117,7 +117,7 @@ describe('전달 워커 (통합)', () => {
 		await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
 		base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
-		userId = (await prisma.user.create({ data: { email: `u-${Date.now().toString(36)}${Math.random().toString(36).slice(2)}@test.munjigi.local`, name: 'delivery 통합', plan: 'team' } })).id;
+		userId = (await prisma.user.create({ data: { email: `u-${Date.now().toString(36)}${Math.random().toString(36).slice(2)}@test.munjigi.local`, name: 'delivery 통합', plan: 'pro' } })).id;
 		projectId = (await prisma.project.create({ data: { user_id: userId, name: 'shop', signing_secret_enc: cipher.encrypt(SECRET) } })).id;
 	});
 

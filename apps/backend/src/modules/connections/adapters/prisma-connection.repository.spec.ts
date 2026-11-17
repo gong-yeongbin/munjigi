@@ -19,7 +19,7 @@ describe('PrismaConnectionRepository (통합)', () => {
 	const destination = async (project: number) => (await prisma.destination.create({ data: { project_id: project, name: 'd', url: 'https://example.com' } })).id;
 
 	beforeAll(async () => {
-		userId = (await prisma.user.create({ data: { email: `connection-${Date.now()}@test.munjigi.local`, name: 'connection 테스트', plan: 'team' } })).id;
+		userId = (await prisma.user.create({ data: { email: `connection-${Date.now()}@test.munjigi.local`, name: 'connection 테스트', plan: 'pro' } })).id;
 		projectId = (await prisma.project.create({ data: { user_id: userId, name: 'a' } })).id;
 		otherProjectId = (await prisma.project.create({ data: { user_id: userId, name: 'b' } })).id;
 		sources = [await source(projectId), await source(projectId), await source(otherProjectId)];

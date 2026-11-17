@@ -18,7 +18,7 @@ describe('usage (e2e)', () => {
 	beforeAll(async () => {
 		t = await createTestApp();
 		[owner, stranger] = [await t.login(), await t.login()];
-		await t.prisma.user.update({ where: { id: owner.user_id }, data: { plan: 'team' } });
+		await t.prisma.user.update({ where: { id: owner.user_id }, data: { plan: 'pro' } });
 		projectId = (await t.prisma.project.create({ data: { user_id: owner.user_id, name: 'shop' } })).id;
 		await t.prisma.project.create({ data: { user_id: owner.user_id, name: 'blog' } });
 		const source = await t.prisma.source.create({ data: { project_id: projectId, slug: newSlug(), name: 's' } });
@@ -31,7 +31,7 @@ describe('usage (e2e)', () => {
 
 	it('GET /users/me/usage — 받은 웹훅만큼 used가 오르고 프로젝트별로 센다. 거부된 요청은 안 센다', async () => {
 		const before = (await t.http().get(PATH).set(auth(owner)).expect(200)).body as UsageDto;
-		expect(before).toMatchObject({ period: usagePeriod(new Date()), plan: 'team', included: INCLUDED_EVENTS.team, used: 0 });
+		expect(before).toMatchObject({ period: usagePeriod(new Date()), plan: 'pro', included: INCLUDED_EVENTS.pro, used: 0 });
 		expect(before.projects.map((p) => [p.name, p.event_count])).toEqual([
 			['shop', 0],
 			['blog', 0],

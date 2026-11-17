@@ -39,7 +39,7 @@ describe('in (e2e) — 웹훅 수신', () => {
 		t = await createTestApp();
 		valkey = t.app.get(ValkeyService);
 		[owner, free] = [await t.login(), await t.login()];
-		await t.prisma.user.update({ where: { id: owner.user_id }, data: { plan: 'team' } });
+		await t.prisma.user.update({ where: { id: owner.user_id }, data: { plan: 'pro' } });
 		projectId = (await t.prisma.project.create({ data: { user_id: owner.user_id, name: 'shop' } })).id;
 		open = await source(projectId, 2);
 

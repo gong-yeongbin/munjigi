@@ -4,7 +4,8 @@ import { errorMessage } from '@/api/client';
 import { getUsage } from '@/api/usage';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-const PLAN_LABEL = { free: 'Free', team: 'Team', business: 'Business' } as const;
+// 내부 값은 free, 화면에는 Starter
+const PLAN_LABEL = { free: 'Starter', pro: 'Pro', business: 'Business' } as const;
 // '202610' → '2026년 10월'
 const monthLabel = (period: string) => `${period.slice(0, 4)}년 ${Number(period.slice(4))}월`;
 

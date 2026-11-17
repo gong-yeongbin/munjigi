@@ -29,7 +29,7 @@ describe('events (e2e)', () => {
 		t = await createTestApp();
 		valkey = t.app.get(ValkeyService);
 		[owner, outsider] = [await t.login(), await t.login()];
-		await t.prisma.user.update({ where: { id: owner.user_id }, data: { plan: 'team' } });
+		await t.prisma.user.update({ where: { id: owner.user_id }, data: { plan: 'pro' } });
 		projectId = (await t.prisma.project.create({ data: { user_id: owner.user_id, name: 'shop' } })).id;
 		otherProjectId = (await t.prisma.project.create({ data: { user_id: owner.user_id, name: 'blog' } })).id;
 		source = await t.prisma.source.create({ data: { project_id: projectId, slug: newSlug(), name: 's' }, select: { id: true, slug: true } });

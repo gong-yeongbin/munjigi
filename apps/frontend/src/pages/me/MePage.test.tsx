@@ -15,7 +15,7 @@ describe('MePage', () => {
 		renderApp('/app/me');
 		expect(await screen.findByText('seed@munjigi.local')).toBeDefined();
 		expect(screen.getByText('시드')).toBeDefined();
-		expect(screen.getByText('Team')).toBeDefined();
+		expect(screen.getByText('Pro')).toBeDefined();
 		await userEvent.setup().click(screen.getByRole('button', { name: '로그아웃' }));
 		expect(await screen.findByRole('button', { name: /Google 계정으로 로그인/ })).toBeDefined();
 	});

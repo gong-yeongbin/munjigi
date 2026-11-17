@@ -17,7 +17,7 @@ describe('PrismaDestinationRepository (통합)', () => {
 	let otherProjectId: number;
 
 	beforeAll(async () => {
-		userId = (await prisma.user.create({ data: { email: `destination-${Date.now()}@test.munjigi.local`, name: 'destination 테스트', plan: 'team' } })).id;
+		userId = (await prisma.user.create({ data: { email: `destination-${Date.now()}@test.munjigi.local`, name: 'destination 테스트', plan: 'pro' } })).id;
 		projectId = (await prisma.project.create({ data: { user_id: userId, name: 'a' } })).id;
 		otherProjectId = (await prisma.project.create({ data: { user_id: userId, name: 'b' } })).id;
 	});
@@ -34,7 +34,7 @@ describe('PrismaDestinationRepository (통합)', () => {
 		const created = await destinations.create(projectId, plain('first'), (state) => void seen.push(state));
 		expect(created).toMatchObject({ project_id: projectId, name: 'first', headers: {}, timeout_ms: 5000, concurrency: 10 });
 		expect(created).not.toHaveProperty('headers_enc');
-		expect(seen).toEqual([{ plan: 'team', count: 0 }]);
+		expect(seen).toEqual([{ plan: 'pro', count: 0 }]);
 
 		await expect(
 			destinations.create(projectId, plain('rejected'), () => {

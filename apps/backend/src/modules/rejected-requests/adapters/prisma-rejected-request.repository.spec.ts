@@ -18,7 +18,7 @@ describe('PrismaRejectedRequestRepository (통합)', () => {
 		prisma.rejected_request.create({ data: { project_id, source_id, reason, headers: { 'x-signature': 'bad' }, size: 11 } });
 
 	beforeAll(async () => {
-		userId = (await prisma.user.create({ data: { email: `rejected-${Date.now()}@test.munjigi.local`, name: 'rejected 테스트', plan: 'team' } })).id;
+		userId = (await prisma.user.create({ data: { email: `rejected-${Date.now()}@test.munjigi.local`, name: 'rejected 테스트', plan: 'pro' } })).id;
 		projectId = (await prisma.project.create({ data: { user_id: userId, name: 'a' } })).id;
 		otherProjectId = (await prisma.project.create({ data: { user_id: userId, name: 'b' } })).id;
 		const source = async (project: number) => (await prisma.source.create({ data: { project_id: project, slug: newSlug(), name: 's' } })).id;

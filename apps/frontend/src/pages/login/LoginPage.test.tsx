@@ -48,7 +48,7 @@ describe('LoginPage', () => {
 		vi.stubEnv('VITE_DEV_TOKEN', 'token-from-env');
 		renderLogin();
 		expect(screen.getByRole('link', { name: 'munjigi' }).getAttribute('href')).toBe('/');
-		expect(screen.getByText('처음이면 계정이 자동으로 만들어집니다')).toBeDefined();
+		expect(screen.getByText('처음 로그인하면 계정이 자동으로 만들어집니다')).toBeDefined();
 		fireEvent.click(screen.getByRole('button', { name: /Google 계정으로 로그인/ }));
 		expect(localStorage.getItem('munjigi.token')).toBe('token-from-env');
 		expect(screen.getByText('대시보드')).toBeDefined();

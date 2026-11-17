@@ -61,7 +61,7 @@ export function LoginPage() {
 						{error}
 					</p>
 				)}
-				<p className="mt-4 text-[13px] text-muted-foreground">처음이면 계정이 자동으로 만들어집니다</p>
+				<p className="mt-4 text-[13px] text-muted-foreground">처음 로그인하면 계정이 자동으로 만들어집니다</p>
 			</div>
 		</div>
 	);

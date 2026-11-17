@@ -21,7 +21,7 @@ describe('PrismaDeliveryApiRepository (통합)', () => {
 	const status = async (id: bigint) => (await prisma.delivery.findUniqueOrThrow({ where: { id } })).status;
 
 	beforeAll(async () => {
-		userId = (await prisma.user.create({ data: { email: `u-${Date.now().toString(36)}${Math.random().toString(36).slice(2)}@test.munjigi.local`, name: 'delivery api 테스트', plan: 'team' } })).id;
+		userId = (await prisma.user.create({ data: { email: `u-${Date.now().toString(36)}${Math.random().toString(36).slice(2)}@test.munjigi.local`, name: 'delivery api 테스트', plan: 'pro' } })).id;
 		projectId = (await prisma.project.create({ data: { user_id: userId, name: 'a' } })).id;
 		otherProjectId = (await prisma.project.create({ data: { user_id: userId, name: 'b' } })).id;
 		destinationA = (await prisma.destination.create({ data: { project_id: projectId, name: 'a', url: 'https://example.com/a' } })).id;

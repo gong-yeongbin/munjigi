@@ -32,6 +32,7 @@ export function App({ scope = SCOPE }: { scope?: Scope }) {
 					<Routes>
 						<Route path="/" element={<LandingPage />} />
 						<Route path="/login" element={<LoginPage />} />
+						<Route path="/pricing" element={<PricingPage />} />
 						{/* 대시보드는 아직 열지 않는다. 로그인 뒤에도 랜딩으로 */}
 						<Route path="*" element={<Navigate to="/" replace />} />
 					</Routes>

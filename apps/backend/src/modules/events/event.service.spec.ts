@@ -29,7 +29,7 @@ const original: event = { ...row, body: new Uint8Array(BODY) };
 // port를 in-memory fake로 둔다
 class FakeEvents implements EventRepository {
 	rows = [row, { ...row, id: 119n, source_id: null }];
-	replay: ReplaySource | null = { event: original, source: { id: 7, connections: [{ id: 1, destination_id: 3 }] }, project: { user_id: 1, plan: 'team', suspended: false } };
+	replay: ReplaySource | null = { event: original, source: { id: 7, connections: [{ id: 1, destination_id: 3 }] }, project: { user_id: 1, plan: 'pro', suspended: false } };
 	stored: NewReplay | null = null;
 
 	list(projectId: number, filter: { source_id?: number }, cursor: bigint | null, take: number) {
@@ -113,7 +113,7 @@ describe('EventService', () => {
 			events.replay = null;
 			await expect(service.replay(PROJECT, 120n, NOW)).rejects.toThrow(NotFoundException);
 
-			events.replay = { event: original, source: { id: 7, connections: [] }, project: { user_id: 1, plan: 'team', suspended: true } };
+			events.replay = { event: original, source: { id: 7, connections: [] }, project: { user_id: 1, plan: 'pro', suspended: true } };
 			await expect(service.replay(PROJECT, 120n, NOW)).rejects.toThrow(ForbiddenException);
 
 			events.replay.project.suspended = false;

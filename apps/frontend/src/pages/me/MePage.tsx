@@ -6,7 +6,8 @@ import { clearToken } from '@/auth/token';
 import { formatTime } from '@/components/Time';
 import { Button } from '@/components/ui/button';
 
-const PLAN_LABEL = { free: 'Free', team: 'Team', business: 'Business' } as const;
+// 내부 값은 free, 화면에는 Starter
+const PLAN_LABEL = { free: 'Starter', pro: 'Pro', business: 'Business' } as const;
 
 // 로그인한 내 계정. 구글에서 받은 이름·이메일이라 여기서 바꾸지 않는다. 플랜은 user에 붙는다
 export function MePage() {
