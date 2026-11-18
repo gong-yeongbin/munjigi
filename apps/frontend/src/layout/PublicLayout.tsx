@@ -1,8 +1,11 @@
+import { useQuery } from '@tanstack/react-query';
 import { cn } from 'cn';
-import type { ReactNode } from 'react';
+import { type ReactNode, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
+import { getMe } from '@/api/users';
 import { clearToken, getToken } from '@/auth/token';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useScope } from '@/config';
 
 // 상단 메뉴. 페이지가 생기면 여기 경로만 바꾼다. open이 true면 login 범위에서도 보인다
@@ -18,11 +21,39 @@ export function useWaiting() {
 	return scope === 'landing' || (scope === 'login' && getToken() !== null);
 }
 
+// 로그인한 사람의 상단 메뉴. 구글 프로필 사진 동그라미를 누르면 이메일, 대시보드·설정(비활성), 로그아웃.
+// 사진이 없거나 못 불러오면 이름 첫 글자. 구글 사진 주소는 리퍼러가 있으면 거부하므로 no-referrer
+function AccountMenu({ onLogout }: { onLogout: () => void }) {
+	const me = useQuery({ queryKey: ['me'], queryFn: getMe });
+	const [broken, setBroken] = useState(false);
+	const avatar = broken ? null : (me.data?.avatar_url ?? null);
+	return (
+		<DropdownMenu>
+			<DropdownMenuTrigger
+				render={<button type="button" aria-label="내 계정" />}
+				className="flex size-10 items-center justify-center overflow-hidden rounded-full bg-primary text-sm font-semibold text-sand"
+			>
+				{avatar ? <img src={avatar} alt="" referrerPolicy="no-referrer" className="size-full object-cover" onError={() => setBroken(true)} /> : me.data?.name.slice(0, 1)}
+			</DropdownMenuTrigger>
+			{/* 기본 팝업은 트리거(40px 동그라미) 폭에 맞춰져 이메일이 잘린다. 내용 폭으로 */}
+			<DropdownMenuContent align="end" className="w-max min-w-48 max-w-80">
+				{me.data && <p className="truncate px-1.5 py-1 text-sm text-muted-foreground">{me.data.email}</p>}
+				<DropdownMenuSeparator />
+				{/* 대시보드가 열리기 전까지 비활성. 열리면 /app·/app/settings로 보낸다 */}
+				<DropdownMenuItem disabled>대시보드</DropdownMenuItem>
+				<DropdownMenuItem disabled>설정</DropdownMenuItem>
+				<DropdownMenuSeparator />
+				<DropdownMenuItem onClick={onLogout}>로그아웃</DropdownMenuItem>
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+}
+
 // 로그인 전 화면(랜딩·요금)의 공통 틀. 모래색 바탕, 워드마크 왼쪽, 글자 링크 오른쪽. 푸터는 맨 아래 한 줄
 export function PublicLayout({ children }: { children: ReactNode }) {
 	const { pathname } = useLocation();
 	const scope = useScope();
-	// 로그인만 열린 배포에서는 로그인한 사람도 랜딩에 머문다. 그때 상단에는 로그아웃만 두고, 로그아웃은 대시보드와 같이 /login으로
+	// 로그인만 열린 배포에서는 로그인한 사람도 랜딩에 머문다. 그때 상단에는 프로필 메뉴만 두고, 로그아웃은 대시보드와 같이 /login으로
 	const navigate = useNavigate();
 	const loggedIn = scope === 'login' && getToken() !== null;
 	const logout = () => {
@@ -43,11 +74,7 @@ export function PublicLayout({ children }: { children: ReactNode }) {
 								{item.label}
 							</Link>
 						))}
-					{loggedIn && (
-						<Button type="button" variant="outline" size="lg" onClick={logout}>
-							로그아웃
-						</Button>
-					)}
+					{loggedIn && <AccountMenu onLogout={logout} />}
 					{scope !== 'landing' && !loggedIn && (
 						<>
 							<Link to="/login" className="text-cobalt-muted underline-offset-4 hover:underline">
