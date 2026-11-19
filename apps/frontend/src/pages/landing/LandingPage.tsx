@@ -1,7 +1,6 @@
 import { cn } from 'cn';
 import { type ReactNode, useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router';
-import { getToken } from '@/auth/token';
+import { Link, useNavigate } from 'react-router';
 import { useScope } from '@/config';
 import { StatusTag } from '@/components/StatusTag';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -12,10 +11,6 @@ import { EventsFragment, Panel } from './fragments';
 // 설명 대신 실제 화면 조각이 일한다(context-notes "프론트 스타일 교체" 절).
 // 첫 화면은 제목 + 코발트 무대 위의 이벤트 화면. 무대 왼쪽 위 모서리를 계단형으로 깎는다(이 페이지의 유일한 장식)
 export function LandingPage() {
-	const scope = useScope();
-	// 대시보드가 열려 있고 이미 로그인돼 있으면 거기로. 그 전에는 로그인한 사람도 랜딩에 머문다
-	if (getToken() && scope === 'all') return <Navigate to="/app" replace />;
-
 	return (
 		<PublicLayout>
 			<Hero />

@@ -10,8 +10,8 @@ import { renderApp } from '@/test/render';
 describe('공개 범위(SCOPE)', () => {
 	beforeEach(() => localStorage.clear());
 
-	it('지금 배포 설정은 로그인까지 공개다', () => {
-		expect(SCOPE).toBe('login');
+	it('지금 배포 설정은 전부 공개다', () => {
+		expect(SCOPE).toBe('all');
 	});
 
 	describe('landing', () => {
@@ -39,6 +39,20 @@ describe('공개 범위(SCOPE)', () => {
 			expect(screen.queryByRole('link', { name: '요금' })).toBeNull();
 			expect(screen.queryByRole('link', { name: '문서' })).toBeNull();
 			expect(screen.queryByRole('link', { name: '개발자' })).toBeNull();
+		});
+	});
+
+	describe('all', () => {
+		it('로그인 상태의 공개 화면: 로그인·시작하기 대신 프로필 메뉴. 대시보드를 누르면 이벤트 화면으로', async () => {
+			setToken('jwt');
+			renderApp('/pricing');
+			expect(screen.queryByRole('link', { name: '로그인' })).toBeNull();
+			const u = userEvent.setup();
+			await u.click(screen.getByRole('button', { name: '내 계정' }));
+			const items = await screen.findAllByRole('menuitem');
+			expect(items.map((m) => m.getAttribute('aria-disabled'))).toEqual([null, null]);
+			await u.click(screen.getByRole('menuitem', { name: '대시보드' }));
+			expect((await screen.findByRole('link', { name: '이벤트' })).getAttribute('aria-current')).toBe('page');
 		});
 	});
 
@@ -108,10 +122,10 @@ describe('공개 범위(SCOPE)', () => {
 			await userEvent.setup().click(account);
 			expect(await screen.findByText(ME.email)).toBeDefined();
 			expect(screen.queryByText(ME.name)).toBeNull();
-			// 대시보드·설정은 대시보드가 열리기 전까지 비활성
+			// 대시보드는 열리기 전까지 비활성
 			const items = screen.getAllByRole('menuitem');
-			expect(items.map((m) => m.textContent)).toEqual(['대시보드', '설정', '로그아웃']);
-			expect(items.map((m) => m.getAttribute('aria-disabled'))).toEqual(['true', 'true', null]);
+			expect(items.map((m) => m.textContent)).toEqual(['대시보드', '로그아웃']);
+			expect(items.map((m) => m.getAttribute('aria-disabled'))).toEqual(['true', null]);
 
 			await userEvent.setup().click(screen.getByRole('menuitem', { name: '로그아웃' }));
 			expect(await screen.findByRole('button', { name: /Google 계정으로 로그인/ })).toBeDefined();

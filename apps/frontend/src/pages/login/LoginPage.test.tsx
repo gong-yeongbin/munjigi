@@ -6,10 +6,10 @@ import { server } from '@/test/msw';
 import { withQuery } from '@/test/render';
 import { LoginPage } from './LoginPage';
 
-const renderLogin = () =>
+const renderLogin = (path = '/login') =>
 	render(
 		withQuery(
-			<MemoryRouter initialEntries={['/login']}>
+			<MemoryRouter initialEntries={[path]}>
 				<Routes>
 					<Route path="/login" element={<LoginPage />} />
 					<Route path="/app" element={<p>대시보드</p>} />
@@ -79,6 +79,22 @@ describe('LoginPage', () => {
 		await waitFor(() => expect(localStorage.getItem('munjigi.token')).toBe('jwt-from-google'));
 		expect(posted[0]).toEqual({ id_token: 'google-id-token' });
 		expect(await screen.findByText('대시보드')).toBeDefined();
+	});
+
+	it('랜딩 폼이 넘긴 프로젝트 이름(?project=)을 로그인 요청에 같이 보낸다', async () => {
+		vi.stubEnv('VITE_GOOGLE_CLIENT_ID', 'client-123');
+		const google = fakeGoogle();
+		const posted: unknown[] = [];
+		server.use(
+			http.post('/api/auth/google', async ({ request }) => {
+				posted.push(await request.json());
+				return HttpResponse.json({ access_token: 'jwt-from-google' });
+			})
+		);
+		renderLogin('/login?project=blog');
+		await screen.findByText('Google 버튼');
+		google.choose('google-id-token');
+		await waitFor(() => expect(posted[0]).toEqual({ id_token: 'google-id-token', project_name: 'blog' }));
 	});
 
 	it('백엔드가 거부하면 메시지를 보여준다', async () => {

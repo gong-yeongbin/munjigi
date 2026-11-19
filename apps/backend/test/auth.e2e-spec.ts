@@ -101,6 +101,27 @@ describe('auth (e2e)', () => {
 			expect(await prisma.user.count({ where: { email } })).toBe(1);
 		});
 
+		it('가입하면 default 프로젝트가 서명 키와 함께 생긴다. project_name을 주면 그 이름으로. 다시 로그인해도 더 만들지 않는다', async () => {
+			const plain = newGoogleUser();
+			const token = await login(plain);
+			await login(plain);
+			const list = await request(app.getHttpServer()).get('/projects').set('Authorization', `Bearer ${token}`).expect(200);
+			const projects = (list.body as { data: { id: number; name: string }[] }).data;
+			expect(projects.map((p) => p.name)).toEqual(['default']);
+			const secret = await request(app.getHttpServer()).get(`/projects/${projects[0]!.id}/signing-secret`).set('Authorization', `Bearer ${token}`).expect(200);
+			expect((secret.body as { signing_secret: string }).signing_secret).toMatch(/^rdsec_/);
+
+			const named = newGoogleUser();
+			emails.push(profiles.get(named)!.email);
+			await request(app.getHttpServer()).post('/auth/google').send({ id_token: named, project_name: 'shop' }).expect(200);
+			expect((await prisma.project.findMany({ where: { user_id: await userId(named) } })).map((p) => p.name)).toEqual(['shop']);
+		});
+
+		it('project_name이 100자를 넘으면 400 validation_failed', async () => {
+			const response = await request(app.getHttpServer()).post('/auth/google').send({ id_token: newGoogleUser(), project_name: 'a'.repeat(101) }).expect(400);
+			expect(errorOf(response).code).toBe('validation_failed');
+		});
+
 		it('구글 토큰이 유효하지 않으면 401 unauthenticated', async () => {
 			const response = await request(app.getHttpServer()).post('/auth/google').send({ id_token: 'google:unknown' }).expect(401);
 			expect(errorOf(response).code).toBe('unauthenticated');

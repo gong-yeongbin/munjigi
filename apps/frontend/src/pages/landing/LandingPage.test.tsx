@@ -1,10 +1,11 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { setToken } from '@/auth/token';
+import { withQuery } from '@/test/render';
 import { LandingPage } from './LandingPage';
 
 const renderLanding = () =>
-	render(
+	render(withQuery(
 		<MemoryRouter initialEntries={['/']}>
 			<Routes>
 				<Route path="/" element={<LandingPage />} />
@@ -12,7 +13,7 @@ const renderLanding = () =>
 				<Route path="/login" element={<p>로그인 화면</p>} />
 			</Routes>
 		</MemoryRouter>
-	);
+	));
 
 describe('LandingPage', () => {
 	beforeEach(() => localStorage.clear());
@@ -51,10 +52,10 @@ describe('LandingPage', () => {
 		expect(screen.getByText('로그인 화면')).toBeDefined();
 	});
 
-	it('이미 로그인돼 있으면 /app으로 보낸다', () => {
+	it('로그인돼 있어도 랜딩을 보여준다. 대시보드로 보내지 않는다', () => {
 		setToken('jwt');
 		renderLanding();
-		expect(screen.getByText('대시보드')).toBeDefined();
-		expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
+		expect(screen.getByRole('heading', { level: 1, name: /웹훅을 안전하게 받아/ })).toBeDefined();
+		expect(screen.queryByText('대시보드')).toBeNull();
 	});
 });

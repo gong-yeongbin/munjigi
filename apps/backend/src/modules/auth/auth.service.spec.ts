@@ -11,6 +11,7 @@ class FakeAccounts implements AccountRepository {
 	bySub = new Map<string, number>();
 	byEmail = new Map<string, number>();
 	nextId = 100;
+	projects = new Map<number, { name: string; signing_secret: string }>();
 
 	findUserIdByGoogleSub(sub: string) {
 		return Promise.resolve(this.bySub.get(sub) ?? null);
@@ -22,10 +23,11 @@ class FakeAccounts implements AccountRepository {
 		this.bySub.set(sub, userId);
 		return Promise.resolve();
 	}
-	signUpWithGoogle(profile: GoogleProfile) {
+	signUpWithGoogle(profile: GoogleProfile, project: { name: string; signing_secret: string }) {
 		const id = this.nextId++;
 		this.bySub.set(profile.sub, id);
 		this.byEmail.set(profile.email, id);
+		this.projects.set(id, project);
 		return Promise.resolve(id);
 	}
 }
@@ -43,6 +45,29 @@ describe('AuthService.loginWithGoogle', () => {
 
 		expect(await service.loginWithGoogle('id-token')).toEqual({ access_token: 'token-100' });
 		expect(accounts.bySub.get('g-1')).toBe(100);
+	});
+
+	it('가입하면 default 프로젝트를 서명 키와 함께 만든다. 이름을 넘기면 그 이름을 쓰고, 공백뿐이면 default', async () => {
+		const { service, accounts } = serviceWith(PROFILE);
+		await service.loginWithGoogle('id-token');
+		expect(accounts.projects.get(100)?.name).toBe('default');
+		expect(accounts.projects.get(100)?.signing_secret).toMatch(/^rdsec_/);
+
+		const named = serviceWith(PROFILE);
+		await named.service.loginWithGoogle('id-token', '  shop ');
+		expect(named.accounts.projects.get(100)?.name).toBe('shop');
+
+		const blank = serviceWith(PROFILE);
+		await blank.service.loginWithGoogle('id-token', '   ');
+		expect(blank.accounts.projects.get(100)?.name).toBe('default');
+	});
+
+	it('이미 가입한 유저가 이름을 넘겨도 프로젝트를 만들지 않는다', async () => {
+		const { service, accounts } = serviceWith(PROFILE);
+		await service.loginWithGoogle('id-token');
+		await service.loginWithGoogle('id-token', 'blog');
+		expect(accounts.projects.size).toBe(1);
+		expect(accounts.projects.get(100)?.name).toBe('default');
 	});
 
 	it('두 번째 로그인은 같은 유저로 토큰을 주고 다시 가입하지 않는다', async () => {

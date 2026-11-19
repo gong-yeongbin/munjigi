@@ -34,7 +34,8 @@ export async function createTestApp(): Promise<TestApp> {
 	await app.listen(0, '127.0.0.1');
 	const prisma = app.get(PrismaService);
 
-	// 새 구글 유저로 가입·로그인한다(plan free)
+	// 새 구글 유저로 가입·로그인한다(plan free). 가입 때 생기는 default 프로젝트는 지워서 project 0개로 돌려준다.
+	// 각 스펙이 project를 직접 만들어 개수·이름을 확인하기 때문이다. 기본 프로젝트 자체는 auth.e2e-spec이 본다
 	async function login(): Promise<LoggedIn> {
 		const key = randomUUID();
 		const profile = { sub: `sub-${key}`, email: `${key}@test.munjigi.local`, email_verified: true, name: 'e2e', picture: 'https://example.com/a.png' };
@@ -42,6 +43,7 @@ export async function createTestApp(): Promise<TestApp> {
 		emails.push(profile.email);
 		const response = await request(app.getHttpServer()).post('/auth/google').send({ id_token: `google:${key}` }).expect(200);
 		const user = await prisma.user.findUniqueOrThrow({ where: { email: profile.email }, select: { id: true } });
+		await prisma.project.deleteMany({ where: { user_id: user.id } });
 		return { token: (response.body as { access_token: string }).access_token, user_id: user.id, profile };
 	}
 

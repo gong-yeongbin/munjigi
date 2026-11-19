@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router';
 import { loginWithGoogle } from '@/api/auth';
 import { errorMessage } from '@/api/client';
 import { renderGoogleButton } from '@/auth/google';
@@ -15,6 +15,8 @@ export function LoginPage() {
 	// 대시보드가 열려 있으면(all) 거기로, 아니면 랜딩으로
 	const home = useScope() === 'all' ? '/app' : '/';
 	const navigate = useNavigate();
+	// 랜딩의 새 프로젝트 폼이 넘긴 이름. 가입이면 백엔드가 이 이름으로 첫 프로젝트를 만든다
+	const projectName = useSearchParams()[0].get('project') ?? undefined;
 	const slot = useRef<HTMLDivElement>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
@@ -26,14 +28,14 @@ export function LoginPage() {
 			setBusy(true);
 			setError(null);
 			try {
-				setToken(await loginWithGoogle(idToken));
+				setToken(await loginWithGoogle(idToken, projectName));
 				void navigate(home, { replace: true });
 			} catch (e) {
 				setError(errorMessage(e));
 				setBusy(false);
 			}
 		}).catch((e: unknown) => setError(errorMessage(e)));
-	}, [loggedIn, navigate, CLIENT_ID, home]);
+	}, [loggedIn, navigate, CLIENT_ID, home, projectName]);
 
 	if (loggedIn) return <Navigate to={home} replace />;
 

@@ -12,11 +12,11 @@ export class AuthController {
 	@Public()
 	@Post('google')
 	@HttpCode(200)
-	@ApiOperation({ summary: '구글 ID 토큰으로 로그인한다. 첫 로그인이면 계정(free)을 만든다' })
+	@ApiOperation({ summary: '구글 ID 토큰으로 로그인한다. 첫 로그인이면 계정(free)과 프로젝트 하나를 만든다' })
 	@ApiResponse({ status: 200, type: AccessTokenDto })
 	@ApiResponse({ status: 400, description: 'validation_failed' })
 	@ApiResponse({ status: 401, description: 'unauthenticated — 토큰이 유효하지 않거나 이메일이 검증되지 않음' })
 	google(@Body() body: GoogleLoginDto): Promise<AccessTokenDto> {
-		return this.auth.loginWithGoogle(body.id_token);
+		return this.auth.loginWithGoogle(body.id_token, body.project_name);
 	}
 }

@@ -3,6 +3,9 @@ import { decideGoogleLogin } from './domain/google-login';
 import { ACCOUNT_REPOSITORY, type AccountRepository } from './ports/account.repository';
 import { GOOGLE_ID_TOKEN_VERIFIER, type GoogleIdTokenVerifier } from './ports/google-id-token.verifier';
 import { TOKEN_ISSUER, type TokenIssuer } from './ports/token.issuer';
+import { newSigningSecret } from '@/modules/projects/domain/signing-secret';
+
+export const DEFAULT_PROJECT_NAME = 'default';
 
 @Injectable()
 export class AuthService {
@@ -12,7 +15,8 @@ export class AuthService {
 		@Inject(TOKEN_ISSUER) private readonly tokens: TokenIssuer,
 	) {}
 
-	async loginWithGoogle(idToken: string): Promise<{ access_token: string }> {
+	// projectName은 가입일 때만 쓴다. 랜딩의 새 프로젝트 폼에서 넘어온 이름
+	async loginWithGoogle(idToken: string, projectName?: string): Promise<{ access_token: string }> {
 		const profile = await this.google.verify(idToken);
 		if (!profile) throw new UnauthorizedException({ code: 'unauthenticated', message: '구글 토큰이 유효하지 않습니다.' });
 
@@ -34,7 +38,8 @@ export class AuthService {
 				userId = decision.user_id;
 				break;
 			case 'signup':
-				userId = await this.accounts.signUpWithGoogle(profile);
+				// 가입하면 프로젝트 하나를 같이 만든다. 빈 대시보드로 시작하지 않게
+				userId = await this.accounts.signUpWithGoogle(profile, { name: projectName?.trim() || DEFAULT_PROJECT_NAME, signing_secret: newSigningSecret() });
 				break;
 		}
 

@@ -8,3 +8,14 @@ Content-Type: application/json
 }
 
 > {% client.global.set("token", response.body.access_token); %}
+
+### 가입하면서 첫 프로젝트 이름을 정한다 — project_name이 없으면 default. 이미 가입한 계정이면 무시한다
+POST {{baseUrl}}/auth/google
+Content-Type: application/json
+
+{
+	"id_token": "{{idToken}}",
+	"project_name": "shop"
+}
+
+> {% client.global.set("token", response.body.access_token); %}

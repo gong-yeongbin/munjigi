@@ -18,7 +18,7 @@ describe('projects (e2e)', () => {
 
 	afterAll(() => t.close());
 
-	it('가입 직후 project 0개', async () => {
+	it('project가 없으면 빈 목록', async () => {
 		const page = (await t.http().get(path()).set(auth(outsider)).expect(200)).body as ProjectPageDto;
 		expect(page).toEqual({ data: [], next_cursor: null });
 	});
