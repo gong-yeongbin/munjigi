@@ -10,8 +10,8 @@ import { renderApp } from '@/test/render';
 describe('공개 범위(SCOPE)', () => {
 	beforeEach(() => localStorage.clear());
 
-	it('지금 배포 설정은 전부 공개다', () => {
-		expect(SCOPE).toBe('all');
+	it('지금 배포 설정은 관리자에게만 대시보드를 연다', () => {
+		expect(SCOPE).toBe('admin');
 	});
 
 	describe('landing', () => {
@@ -39,6 +39,49 @@ describe('공개 범위(SCOPE)', () => {
 			expect(screen.queryByRole('link', { name: '요금' })).toBeNull();
 			expect(screen.queryByRole('link', { name: '문서' })).toBeNull();
 			expect(screen.queryByRole('link', { name: '개발자' })).toBeNull();
+		});
+	});
+
+	describe('admin', () => {
+		const only = { scope: 'admin' as const };
+
+		it('로그인 전에는 login 범위와 같다. /app은 랜딩으로, /login은 열린다', () => {
+			const app = renderApp('/app/events', only);
+			expect(screen.getByRole('heading', { level: 1, name: /웹훅을 안전하게 받아/ })).toBeDefined();
+			expect(screen.getByRole('link', { name: '로그인' })).toBeDefined();
+			app.unmount();
+			renderApp('/login', only);
+			expect(screen.getByRole('button', { name: /Google 계정으로 로그인/ })).toBeDefined();
+		});
+
+		it('관리자가 아니면 로그인해도 /app은 랜딩으로, 대시보드 항목은 비활성', async () => {
+			setToken('jwt');
+			renderApp('/app/events', only);
+			expect(await screen.findByRole('heading', { level: 1, name: /웹훅을 안전하게 받아/ })).toBeDefined();
+			expect(screen.getByRole('button', { name: '준비 중' }).hasAttribute('disabled')).toBe(true);
+			await userEvent.setup().click(screen.getByRole('button', { name: '내 계정' }));
+			expect((await screen.findByRole('menuitem', { name: '대시보드' })).getAttribute('aria-disabled')).toBe('true');
+		});
+
+		it('관리자는 대시보드가 열린다. 랜딩의 프로필 메뉴에서도 들어간다', async () => {
+			server.use(http.get('/api/users/me', () => HttpResponse.json({ ...ME, is_admin: true })));
+			setToken('jwt');
+			const app = renderApp('/app/events', only);
+			expect((await screen.findByRole('link', { name: '이벤트' })).getAttribute('aria-current')).toBe('page');
+			app.unmount();
+
+			renderApp('/', only);
+			const u = userEvent.setup();
+			await u.click(await screen.findByRole('button', { name: '내 계정' }));
+			await u.click(await screen.findByRole('menuitem', { name: '대시보드' }));
+			expect((await screen.findByRole('link', { name: '이벤트' })).getAttribute('aria-current')).toBe('page');
+		});
+
+		it('내 정보를 못 읽으면 닫힌 쪽으로 둔다', async () => {
+			server.use(http.get('/api/users/me', () => HttpResponse.json({ code: 'internal', message: '오류' }, { status: 500 })));
+			setToken('jwt');
+			renderApp('/app/events', only);
+			expect(await screen.findByRole('heading', { level: 1, name: /웹훅을 안전하게 받아/ })).toBeDefined();
 		});
 	});
 

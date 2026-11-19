@@ -9,7 +9,7 @@ import type { Scope } from '@/config';
 
 // 앱 전체를 main.tsx와 같은 제공자(쿼리·툴팁·토스트)로 그린다. 재시도는 끈다(실패 테스트가 느려진다).
 // 공개 범위(SCOPE)와 무관하게 전체 화면을 검사하도록 기본은 all이다
-export function renderApp(path: string, { scope = 'all' }: { scope?: Scope } = {}) {
+export function renderApp(path: string, { scope = 'all' }: { scope?: Scope | 'admin' } = {}) {
 	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	return render(
 		<QueryClientProvider client={client}>

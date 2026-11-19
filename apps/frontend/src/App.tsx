@@ -1,5 +1,8 @@
+import { useQuery } from '@tanstack/react-query';
 import { Navigate, Route, Routes, useLocation } from 'react-router';
+import { getMe } from './api/users';
 import { ProjectProvider } from './auth/project';
+import { getToken } from './auth/token';
 import { SCOPE, type Scope, ScopeContext } from './config';
 import { RequireAuth } from './auth/RequireAuth';
 import { AppShell, Placeholder } from './layout/AppShell';
@@ -17,9 +20,22 @@ import { ProjectSettingsPage } from './pages/settings/ProjectSettingsPage';
 import { SourcesPage } from './pages/sources/SourcesPage';
 import { UsagePage } from './pages/usage/UsagePage';
 
+// admin 범위를 푼다. 관리자면 all, 아니면(로그인 전 포함) login. 로그인했는데 아직 내 정보를 못 읽었으면 null(그리지 않는다).
+// 키에 토큰을 넣어 계정을 바꿔 로그인하면 앞 사람의 결과를 쓰지 않는다
+function useResolvedScope(scope: Scope | 'admin'): Scope | null {
+	const token = getToken();
+	const me = useQuery({ queryKey: ['me', token], queryFn: getMe, enabled: scope === 'admin' && token !== null });
+	if (scope !== 'admin') return scope;
+	if (token === null) return 'login';
+	if (me.isPending) return null;
+	return me.data?.is_admin ? 'all' : 'login';
+}
+
 // 라우트 표. 화면이 늘 때마다 한 줄씩. 경로가 바뀌면 key가 바뀌어 .page의 페이드인이 다시 돈다
-export function App({ scope = SCOPE }: { scope?: Scope }) {
+export function App({ scope: deployed = SCOPE }: { scope?: Scope | 'admin' }) {
 	const { pathname } = useLocation();
+	const scope = useResolvedScope(deployed);
+	if (scope === null) return null;
 	return (
 		<ScopeContext.Provider value={scope}>
 			<div key={pathname} className="page">
