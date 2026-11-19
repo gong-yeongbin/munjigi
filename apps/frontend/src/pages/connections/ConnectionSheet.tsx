@@ -30,7 +30,7 @@ export function ConnectionSheet({ projectId, connection, sourceName, destination
 	const pause = useMutation({
 		mutationFn: () => pauseConnection(projectId, connection.id, !paused),
 		onSuccess: async () => {
-			toast.success(paused ? '재개했습니다. 보류해 둔 전달부터 다시 보냅니다.' : '일시 정지했습니다. 들어오는 웹훅은 보류됩니다.');
+			toast.success(paused ? '재개했습니다. 지금부터 들어오는 웹훅을 보냅니다. 보류된 전달은 전달 화면에서 직접 다시 보내세요. 보낸 만큼 사용량에 더해집니다.' : '일시 정지했습니다. 들어오는 웹훅은 보류됩니다.');
 			await refresh();
 		},
 		onError: (error) => toast.error(errorMessage(error)),
@@ -70,7 +70,7 @@ export function ConnectionSheet({ projectId, connection, sourceName, destination
 
 					<div className="rounded-lg bg-muted/60 p-4 text-sm">
 						<p className="font-medium">{paused ? '일시 정지 중' : '보내는 중'}</p>
-						<p className="mt-1 text-muted-foreground">{paused ? '들어오는 웹훅은 저장만 하고 보류해 둡니다. 재개하면 보류한 것부터 보냅니다.' : '일시 정지하면 들어오는 웹훅을 저장만 하고 보내지 않습니다. 배포 중에 씁니다.'}</p>
+						<p className="mt-1 text-muted-foreground">{paused ? '들어오는 웹훅은 저장만 하고 보류해 둡니다. 재개하면 그 뒤에 들어오는 것만 보내고, 보류된 것은 전달 화면에서 직접 다시 보낼 수 있습니다.' : '일시 정지하면 들어오는 웹훅을 저장만 하고 보내지 않습니다. 재개해도 그동안의 것은 저절로 보내지 않습니다.'}</p>
 						<Button type="button" size="sm" variant="outline" className="mt-3" disabled={pause.isPending} onClick={() => pause.mutate()}>
 							{paused ? '재개' : '일시 정지'}
 						</Button>

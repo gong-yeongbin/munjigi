@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
 import type { DeliveryStatus } from '@prisma/client';
 import { PrismaService } from '@/infra/prisma/prisma.service';
+import { newSlug } from '@/modules/sources/domain/slug';
 import { PrismaDeliveryApiRepository } from './prisma-delivery-api.repository';
 
 // adapter는 docker compose의 postgres 위에서 통합으로 본다(`pnpm docker:up && pnpm db:deploy` 선행)
@@ -57,6 +58,35 @@ describe('PrismaDeliveryApiRepository (통합)', () => {
 		expect(await deliveries.markRetry(projectId, dead.id)).toMatchObject({ id: dead.id, status: 'pending', next_attempt_at: null, attempt: 1 });
 		expect(await deliveries.markRetry(projectId, dead.id)).toBe('pending');
 		expect(await deliveries.markRetry(otherProjectId, dead.id)).toBe('not_found');
+	});
+
+	it('findHeld·findOwner — held인 것만 알려 주고, 연결이 멈춰 있거나 project가 정지돼 있으면 paused다. 주인의 플랜을 준다', async () => {
+		const source = await prisma.source.create({ data: { project_id: projectId, slug: newSlug(), name: 's' } });
+		const connection = await prisma.connection.create({ data: { source_id: source.id, destination_id: destinationA, paused_at: new Date() } });
+		const held = await create(projectId, 'held');
+		await prisma.delivery.update({ where: { id: held.id }, data: { connection_id: connection.id } });
+		const loose = await create(projectId, 'held');
+		const dead = await create(projectId, 'dead');
+
+		expect(await deliveries.findHeld(projectId, held.id)).toEqual({ paused: true });
+		// 연결이 없는(지워진) 것은 멈춰 있지 않다
+		expect(await deliveries.findHeld(projectId, loose.id)).toEqual({ paused: false });
+		expect(await deliveries.findHeld(projectId, dead.id)).toBeNull();
+		expect(await deliveries.findHeld(otherProjectId, held.id)).toBeNull();
+
+		// held 일괄 재시도는 지금 보낼 수 있는 것만 고른다
+		expect(await deliveries.markBulkRetry(projectId, { status: 'held' }, 10)).toEqual([loose.id]);
+		expect(await status(held.id)).toBe('held');
+
+		await prisma.connection.update({ where: { id: connection.id }, data: { paused_at: null } });
+		expect(await deliveries.findHeld(projectId, held.id)).toEqual({ paused: false });
+		await prisma.project.update({ where: { id: projectId }, data: { suspended_at: new Date() } });
+		expect(await deliveries.findHeld(projectId, held.id)).toEqual({ paused: true });
+		expect(await deliveries.markBulkRetry(projectId, { status: 'held' }, 10)).toEqual([]);
+		await prisma.project.update({ where: { id: projectId }, data: { suspended_at: null } });
+		expect(await deliveries.markBulkRetry(projectId, { status: 'held' }, 10)).toEqual([held.id]);
+
+		expect(await deliveries.findOwner(projectId)).toEqual({ user_id: userId, plan: 'pro' });
 	});
 
 	it('markBulkRetry — 조건에 맞는 것만 limit개(id 오름차순) pending으로 돌리고 id를 준다', async () => {

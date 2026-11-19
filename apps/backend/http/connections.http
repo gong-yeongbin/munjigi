@@ -81,7 +81,7 @@ Content-Type: application/json
 POST {{baseUrl}}/projects/{{projectId}}/connections/{{connectionId}}/pause
 Authorization: Bearer {{token}}
 
-### 일시 정지 해제
+### 일시 정지 해제 — 지금부터 들어오는 것만 전달한다. 보류된 전달은 deliveries.http의 재시도로 보낸다
 POST {{baseUrl}}/projects/{{projectId}}/connections/{{connectionId}}/unpause
 Authorization: Bearer {{token}}
 

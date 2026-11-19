@@ -36,7 +36,7 @@ export class PrismaEventRepository implements EventRepository {
 		const row = await this.prisma.event.findFirst({
 			where: { id, project_id: projectId },
 			include: {
-				source: { select: { id: true, connections: { select: { id: true, destination_id: true } } } },
+				source: { select: { id: true, connections: { select: { id: true, destination_id: true, paused_at: true } } } },
 				project: { select: { suspended_at: true, user: { select: { id: true, plan: true } } } },
 			},
 		});
@@ -44,7 +44,7 @@ export class PrismaEventRepository implements EventRepository {
 		const { source, project, ...event } = row;
 		return {
 			event,
-			source,
+			source: source && { id: source.id, connections: source.connections.map((c) => ({ id: c.id, destination_id: c.destination_id, paused: c.paused_at !== null })) },
 			project: { user_id: project.user.id, plan: project.user.plan, suspended: project.suspended_at !== null },
 		};
 	}

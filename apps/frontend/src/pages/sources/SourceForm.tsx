@@ -95,7 +95,7 @@ export function SourceForm({ source, idPrefix, submitLabel, pending, onSubmit, f
 							<label htmlFor={id('event-id')} className="block text-sm font-medium">
 								이벤트 ID 헤더
 							</label>
-							<Input id={id('event-id')} className="mt-1.5" placeholder="비우면 본문 해시로 중복을 가립니다" value={config.event_id_header ?? ''} onChange={(e) => set({ event_id_header: e.target.value })} />
+							<Input id={id('event-id')} className="mt-1.5" placeholder="비우면 요청 내용의 해시로 중복을 가립니다" value={config.event_id_header ?? ''} onChange={(e) => set({ event_id_header: e.target.value })} />
 						</div>
 					</div>
 				</div>

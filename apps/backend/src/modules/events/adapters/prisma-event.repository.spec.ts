@@ -68,7 +68,7 @@ describe('PrismaEventRepository (통합)', () => {
 		const found = await events.findForReplay(projectId, ids[0]!);
 		expect(found!.event.id).toBe(ids[0]);
 		expect(Buffer.from(found!.event.body).equals(BODY)).toBe(true);
-		expect(found!.source).toEqual({ id: sourceId, connections: [{ id: connectionId, destination_id: destinationId }] });
+		expect(found!.source).toEqual({ id: sourceId, connections: [{ id: connectionId, destination_id: destinationId, paused: false }] });
 		expect(found!.project).toEqual({ user_id: userId, plan: 'pro', suspended: false });
 		expect((await events.findForReplay(projectId, ids[3]!))!.source).toBeNull();
 		expect(await events.findForReplay(otherProjectId, ids[0]!)).toBeNull();

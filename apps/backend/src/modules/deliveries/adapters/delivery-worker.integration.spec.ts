@@ -6,7 +6,6 @@ import { ConfigService } from '@nestjs/config';
 import { CipherService } from '@/infra/cipher/cipher.service';
 import { PrismaService } from '@/infra/prisma/prisma.service';
 import { ValkeyService } from '@/infra/valkey/valkey.service';
-import { QueuedHeldDeliveries } from '@/modules/connections/adapters/queued-held-deliveries';
 import { newSlug } from '@/modules/sources/domain/slug';
 import { DeliveryRunner, MAX_DELIVERIES } from '../delivery.runner';
 import { DeliveryWorker } from '../delivery.worker';
@@ -35,7 +34,7 @@ describe('전달 워커 (통합)', () => {
 	const queue = new ValkeyDeliveryQueue(valkey, keys);
 	const deliveries = new PrismaDeliveryRepository(prisma, cipher);
 	const guard = new ValkeyDestinationGuard(valkey);
-	const worker = new DeliveryWorker(deliveries, new NodeDestinationClient(config), queue, guard, 'https://app.munjigi.io');
+	const worker = new DeliveryWorker(deliveries, new NodeDestinationClient(config), queue, guard, 'https://app.munjigi.io', 1_000);
 	const runner = new DeliveryRunner(worker, queue, deliveries);
 	// sweeper는 DB 전체에서 오래된 것을 찾는다. 같은 DB의 다른 데이터(개발용, 다른 테스트)가 이 테스트의 큐로
 	// 들어오지 않게, 이 테스트가 만든 delivery만 다시 넣는 runner를 따로 둔다
@@ -48,7 +47,6 @@ describe('전달 워커 (통합)', () => {
 		findStale: async (...args) => (await deliveries.findStale(...args)).filter((id) => mine.has(id)),
 	};
 	const sweeping = new DeliveryRunner(worker, queue, scopedRepository);
-	const held = new QueuedHeldDeliveries(prisma, queue);
 	const SECRET = 'rdsec_integration';
 	const BODY = Buffer.from('{ "order": 1,\n  "note": "받은 그대로" }');
 	const FAR = () => new Date(Date.now() + 8 * 24 * 60 * 60 * 1000);
@@ -181,13 +179,15 @@ describe('전달 워커 (통합)', () => {
 		const { delivery } = await setup({ retry: { retry_count: 2 } });
 		await enqueue(delivery.id);
 
-		// 1번째 시도 실패 → 약 1초 뒤로 예약
+		// 1번째 시도 실패 → 약 1초(±20%) 뒤로 예약.
+		// 예약 시각을 확인하는 순간의 "지금"과 비교하면 테스트가 느리게 돌 때 깨진다. 처리한 구간을 기준으로 본다
+		const started = Date.now();
 		await consume();
+		const ended = Date.now();
 		const first = await state(delivery.id);
 		expect(first).toMatchObject({ status: 'failed', attempt: 1, last_status_code: 500 });
-		const delay = first.next_attempt_at!.getTime() - Date.now();
-		expect(delay).toBeGreaterThan(500);
-		expect(delay).toBeLessThanOrEqual(1300);
+		expect(first.next_attempt_at!.getTime()).toBeGreaterThanOrEqual(started + 800);
+		expect(first.next_attempt_at!.getTime()).toBeLessThanOrEqual(ended + 1_200);
 		expect(await valkey.zscore(keys.scheduled, delivery.id.toString())).toBe(String(first.next_attempt_at!.getTime()));
 
 		// 아직 시각이 안 됐으면 스케줄러가 옮기지 않는다
@@ -290,7 +290,7 @@ describe('전달 워커 (통합)', () => {
 		expect(stale).not.toContain(done.delivery.id);
 	});
 
-	it('일시 정지한 연결의 delivery는 보내지 않고 held로 둔다. 풀면 이어서 전달한다', async () => {
+	it('일시 정지한 연결의 delivery는 보내지 않고 held로 둔다. 풀어도 저절로 나가지 않고, 다시 보내면 전달한다', async () => {
 		const { delivery, connection } = await setup();
 		await prisma.connection.update({ where: { id: connection.id }, data: { paused_at: new Date() } });
 		await enqueue(delivery.id);
@@ -304,15 +304,21 @@ describe('전달 워커 (통합)', () => {
 		await prisma.$executeRaw`UPDATE delivery SET updated_at = now() - interval '10 minutes' WHERE id = ${delivery.id}`;
 		expect(await deliveries.findStale(new Date(), 120_000, 500)).not.toContain(delivery.id);
 
+		// 풀어도 저절로 나가지 않는다. sweeper도 건드리지 않는다
 		await prisma.connection.update({ where: { id: connection.id }, data: { paused_at: null } });
-		expect(await held.release(connection.id)).toBe(1);
-		expect(await held.release(connection.id)).toBe(0);
+		expect(await deliveries.findStale(new Date(), 120_000, 500)).not.toContain(delivery.id);
+		await consume();
+		expect(received).toHaveLength(0);
+		expect(await state(delivery.id)).toMatchObject({ status: 'held', attempt: 0 });
 
+		// 사용자가 다시 보내면(관리 API의 수동 재시도가 하는 일) 전달한다
+		await prisma.delivery.update({ where: { id: delivery.id }, data: { status: 'pending' } });
+		await queue.enqueue([{ delivery_id: delivery.id, trigger: 'manual' }]);
 		await consume();
 		const after = await state(delivery.id);
 		expect(after).toMatchObject({ status: 'succeeded', attempt: 1 });
-		expect(after.attempts[0]).toMatchObject({ trigger: 'unpause' });
-		expect(received[0]!.headers['x-munjigi-attempt-trigger']).toBe('unpause');
+		expect(after.attempts[0]).toMatchObject({ trigger: 'manual' });
+		expect(received[0]!.headers['x-munjigi-attempt-trigger']).toBe('manual');
 	});
 
 	it('정지된 project의 delivery도 held로 둔다', async () => {
@@ -391,7 +397,12 @@ describe('전달 워커 (통합)', () => {
 		beforeEach(() => {
 			tag = randomUUID();
 		});
-		afterEach(drain);
+		// 테스트가 중간에 실패하면 미뤄 둔 예약이 남는다. 다음 테스트가 스케줄러를 앞당길 때 그것이 한 묶음(10건)을 먼저 채워
+		// 자기 것이 처리되지 않으므로, 예약도 비운다
+		afterEach(async () => {
+			await valkey.del(keys.scheduled);
+			await drain();
+		});
 
 		it('동시 20건에 concurrency 2 → 목적지에는 한 번에 2건만 간다. 나머지는 미뤘다가 보낸다', async () => {
 			let inflight = 0;
@@ -410,7 +421,9 @@ describe('전달 워커 (통합)', () => {
 			await queue.enqueue(ids.map((delivery_id) => ({ delivery_id })));
 
 			// 10건씩 두 묶음을 동시에 읽어 20건을 한꺼번에 처리한다
+			const started = Date.now();
 			await Promise.all([consume(), consume()]);
+			const ended = Date.now();
 			expect(sent()).toHaveLength(2);
 			expect(maxInflight).toBe(2);
 			// 미룬 18건은 시도 횟수를 쓰지 않고 1~5초 뒤로 예약됐다
@@ -420,9 +433,9 @@ describe('전달 워커 (통합)', () => {
 			for (const id of ids) {
 				const row = await state(id);
 				if (row.status !== 'pending') continue;
-				const delay = row.next_attempt_at!.getTime() - Date.now();
-				expect(delay).toBeGreaterThan(0);
-				expect(delay).toBeLessThanOrEqual(5_000);
+				// 확인하는 순간의 "지금"이 아니라 처리한 구간을 기준으로 본다. 느리게 돌면 그사이 1초가 지나 버린다
+				expect(row.next_attempt_at!.getTime()).toBeGreaterThanOrEqual(started + 1_000);
+				expect(row.next_attempt_at!.getTime()).toBeLessThanOrEqual(ended + 5_000);
 				expect(await valkey.zscore(keys.scheduled, id.toString())).toBe(String(row.next_attempt_at!.getTime()));
 			}
 
@@ -486,11 +499,43 @@ describe('전달 워커 (통합)', () => {
 			expect(await valkey.exists(circuit.failures, circuit.open, circuit.probe)).toBe(0);
 			expect(await guard.circuit(fixture.destination.id)).toEqual({ state: 'closed' });
 		});
+
+		it('목적지당 초당 5건 → 같은 초의 6~10번째는 다음 초, 11번째부터는 그다음 초로 미룬다. 초가 바뀌면 다시 보낸다', async () => {
+			const limited = new DeliveryWorker(deliveries, new NodeDestinationClient(config), queue, guard, 'https://app.munjigi.io', 5);
+			const fixture = await setup({ headers: { 'x-fixture': tag } });
+			const ids = [fixture.delivery.id];
+			for (let i = 1; i < 12; i++) ids.push(await another(fixture));
+			// 어느 초의 0.2초 지점. random 0이면 흩뜨림 없이 뒤 초의 시작으로 간다
+			const now = new Date(Math.floor(Date.now() / 1000) * 1000 + 200);
+			const at = (moment: Date, delivery_id: bigint) => limited.process({ delivery_id }, moment, 0);
+
+			const results: string[] = [];
+			for (const id of ids) results.push(await at(now, id));
+			expect(results).toEqual([...Array<string>(5).fill('succeeded'), ...Array<string>(7).fill('deferred')]);
+			expect(sent()).toHaveLength(5);
+
+			// 미룬 것은 시도 횟수를 쓰지 않고 DB와 예약에 같은 시각으로 남는다
+			for (const [index, id] of ids.slice(5).entries()) {
+				const row = await state(id);
+				expect(row).toMatchObject({ status: 'pending', attempt: 0 });
+				expect(row.next_attempt_at!.getTime() - now.getTime()).toBe(index < 5 ? 800 : 1_800);
+				expect(await valkey.zscore(keys.scheduled, id.toString())).toBe(String(row.next_attempt_at!.getTime()));
+			}
+			// 자리도 서킷도 건드리지 않았다
+			expect(await valkey.zcard(guardKeys(fixture.destination.id).inflight)).toBe(0);
+			expect(await guard.circuit(fixture.destination.id)).toEqual({ state: 'closed' });
+
+			// 다음 초에는 다시 5건이 나가고 여섯 번째는 또 미룬다
+			const next = new Date(now.getTime() + 800);
+			for (const id of ids.slice(5, 10)) expect(await at(next, id)).toBe('succeeded');
+			expect(await at(next, ids[10]!)).toBe('deferred');
+			expect(sent()).toHaveLength(10);
+		});
 	});
 
 	it('내부망 주소 목적지는 보내지 않고 blocked_address 실패로 기록한다(ALLOW_PRIVATE_DESTINATIONS가 true가 아님)', async () => {
 		// 가짜 목적지 서버가 127.0.0.1이라 평소 설정으로는 허용돼 있다. 차단이 켜진 client로 워커를 하나 더 둔다
-		const strict = new DeliveryWorker(deliveries, new NodeDestinationClient(new ConfigService({ ALLOW_PRIVATE_DESTINATIONS: 'false' })), queue, guard, 'https://app.munjigi.io');
+		const strict = new DeliveryWorker(deliveries, new NodeDestinationClient(new ConfigService({ ALLOW_PRIVATE_DESTINATIONS: 'false' })), queue, guard, 'https://app.munjigi.io', 1_000);
 		const { delivery } = await setup();
 
 		expect(await strict.process({ delivery_id: delivery.id }, new Date(), 0.5)).toBe('failed');

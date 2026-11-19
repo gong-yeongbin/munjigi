@@ -7,7 +7,7 @@ export type Usage = {
 	plan: 'free' | 'pro' | 'business';
 	included: number;
 	used: number;
-	projects: { project_id: number; name: string; event_count: number }[];
+	projects: { project_id: number; name: string; delivery_count: number }[];
 };
 
 export const getUsage = async () => (await api.get<Usage>('/users/me/usage')).data;

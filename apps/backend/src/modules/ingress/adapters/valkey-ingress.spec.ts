@@ -1,7 +1,7 @@
 import { randomInt } from 'node:crypto';
 import { ConfigService } from '@nestjs/config';
 import { ValkeyService } from '@/infra/valkey/valkey.service';
-import { REJECTION_RECORDS_PER_MINUTE, rejectionKey, usageKey, ValkeyIngressCounters } from './valkey-ingress.counters';
+import { REJECTION_RECORDS_PER_MINUTE, rejectionKey, heldKey, usageKey, ValkeyIngressCounters } from './valkey-ingress.counters';
 
 // adapter는 docker compose의 valkey 위에서 통합으로 본다(`pnpm docker:up` 선행). 테스트는 DB 1번을 쓴다(test/setup.ts)
 describe('Valkey 인그레스 adapter (통합)', () => {
@@ -19,25 +19,37 @@ describe('Valkey 인그레스 adapter (통합)', () => {
 	});
 
 	describe('ValkeyIngressCounters', () => {
-		it('incrementUsage — 조직·달마다 따로 세고 올린 뒤의 값을 준다. 키는 스스로 만료된다', async () => {
+		it('incrementUsage — 조직·달마다 따로 세고 넘긴 수만큼 올린 뒤의 값을 준다. 키는 스스로 만료된다', async () => {
 			const org = id();
 			created.push(usageKey(org, '202610'), usageKey(org, '202611'));
 
-			expect(await counters.incrementUsage(org, '202610')).toBe(1);
-			expect(await counters.incrementUsage(org, '202610')).toBe(2);
-			expect(await counters.incrementUsage(org, '202611')).toBe(1);
+			expect(await counters.incrementUsage(org, '202610', 3)).toBe(3);
+			expect(await counters.incrementUsage(org, '202610', 2)).toBe(5);
+			// 음수면 되돌린다
+			expect(await counters.incrementUsage(org, '202610', -2)).toBe(3);
+			expect(await counters.incrementUsage(org, '202611', 1)).toBe(1);
 
 			const ttl = await valkey.ttl(usageKey(org, '202610'));
 			expect(ttl).toBeGreaterThan(90 * 24 * 60 * 60);
 			expect(ttl).toBeLessThanOrEqual(100 * 24 * 60 * 60);
 		});
 
+		it('incrementHeld — 사용량과 다른 키에 세고 올린 뒤의 값을 준다. 음수면 되돌린다', async () => {
+			const org = id();
+			created.push(usageKey(org, '202610'), heldKey(org, '202610'));
+
+			expect(await counters.incrementHeld(org, '202610', 3)).toBe(3);
+			expect(await counters.incrementHeld(org, '202610', -1)).toBe(2);
+			expect(await counters.getUsage(org, '202610')).toBe(0);
+			expect(await valkey.ttl(heldKey(org, '202610'))).toBeGreaterThan(90 * 24 * 60 * 60);
+		});
+
 		it('getUsage — 아직 없으면 0, 올린 뒤에는 그 값', async () => {
 			const org = id();
 			created.push(usageKey(org, '202610'));
 			expect(await counters.getUsage(org, '202610')).toBe(0);
-			await counters.incrementUsage(org, '202610');
-			await counters.incrementUsage(org, '202610');
+			await counters.incrementUsage(org, '202610', 1);
+			await counters.incrementUsage(org, '202610', 1);
 			expect(await counters.getUsage(org, '202610')).toBe(2);
 		});
 
@@ -45,7 +57,7 @@ describe('Valkey 인그레스 adapter (통합)', () => {
 			const org = id();
 			created.push(usageKey(org, '202610'));
 
-			const counts = await Promise.all(Array.from({ length: 50 }, () => counters.incrementUsage(org, '202610')));
+			const counts = await Promise.all(Array.from({ length: 50 }, () => counters.incrementUsage(org, '202610', 1)));
 			expect([...counts].sort((a, b) => a - b)).toEqual(Array.from({ length: 50 }, (_, i) => i + 1));
 		});
 

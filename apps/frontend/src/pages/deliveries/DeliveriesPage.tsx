@@ -17,7 +17,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { DeliverySheet } from './DeliverySheet';
 
 const STATUSES = Object.keys(STATUS_LABEL) as DeliveryStatus[];
-const BULK_STATUSES: BulkRetryStatus[] = ['dead', 'failed', 'canceled'];
+const BULK_STATUSES: BulkRetryStatus[] = ['dead', 'failed', 'canceled', 'held'];
 
 // 목적지로 보낸 전달 목록. 상태·목적지로 거르고, 행을 누르면 오른쪽에 시도 기록.
 // 이벤트 화면에서 넘어오면 ?event_id=로 그 이벤트의 전달만 본다. 열린 상세는 ?id=
@@ -231,7 +231,7 @@ function BulkRetryDialog({ open, onOpenChange, projectId, destinationItems }: { 
 						<span className="text-muted-foreground">~</span>
 						<Input type="datetime-local" aria-label="만든 시각 까지" value={before} onChange={(e) => setBefore(e.target.value)} />
 					</div>
-					<p className="text-sm text-muted-foreground">한 번에 최대 1,000건. 더 있으면 다시 누릅니다.</p>
+					<p className="text-sm text-muted-foreground">한 번에 최대 1,000건. 더 있으면 다시 누릅니다. 보류된 것은 보낸 만큼 사용량에 더해집니다.</p>
 					<DialogFooter>
 						<Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
 							취소

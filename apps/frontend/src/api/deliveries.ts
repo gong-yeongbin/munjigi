@@ -16,7 +16,7 @@ export type DeliveryAttempt = {
 };
 export type DeliveryDetail = Delivery & { attempts: DeliveryAttempt[] };
 export type DeliveryFilter = { status?: DeliveryStatus; destination_id?: number; event_id?: string; cursor?: string };
-export type BulkRetryStatus = 'dead' | 'failed' | 'canceled';
+export type BulkRetryStatus = 'dead' | 'failed' | 'canceled' | 'held';
 export type BulkRetryBody = { status: BulkRetryStatus; destination_id?: number; created_after?: string; created_before?: string };
 
 export const TRIGGER_LABEL: Record<AttemptTrigger, string> = {
@@ -24,6 +24,7 @@ export const TRIGGER_LABEL: Record<AttemptTrigger, string> = {
 	automatic: '자동 재시도',
 	manual: '수동 재시도',
 	bulk_retry: '일괄 재시도',
+	// 예전 기록에만 있다. 지금은 재개해도 보류분을 저절로 보내지 않는다
 	unpause: '재개',
 };
 

@@ -29,7 +29,7 @@ API는 `main.ts`(`AppModule`), 전달 워커는 `main.consumer.ts`(`ConsumerModu
 - 워커는 at-least-once, 순서 미보장. 최대 시도 초과는 버리지 않고 `dead`로 남긴다.
 - HTTP DTO는 class-validator, DB JSON 컬럼은 zod. 로그인은 구글 OAuth(비밀번호 없음), 서명
   시크릿과 빌링키는 AES-256-GCM.
-- 인그레스 경로의 사용량 집계는 Valkey INCR 하나뿐이다. DB 카운트나 집계 쿼리를 넣지 않는다.
+- 인그레스 경로의 사용량 집계는 Valkey 카운터뿐이다(평소 INCRBY 하나). DB 카운트나 집계 쿼리를 넣지 않는다.
 
 ## 엔드포인트
 
@@ -61,7 +61,7 @@ RESTful하게 작성한다. 리소스는 URL, 행위는 HTTP 메서드로 표현
 - 목록·단건 조회는 항상 소유 조건(project는 `user_id`, project 리소스는 `project_id`)을 건다. id만으로
   조회하지 않는다.
 - 플랜 게이트는 가드가 아니라 service에서 403 `plan_limit`. project 생성은 project 상한(free 1, 유료 무제한)
-  안에서만, source·destination 생성은 free만 project당 각 3개, 이벤트 상한은 인그레스 429 `usage_exceeded`.
+  안에서만, source·destination 생성은 free만 project당 각 3개, free가 월 포함량을 넘으면 인그레스가 받아서 저장하되 delivery를 held로 만들고, 보류 상한(`FREE_HOLD_LIMIT`)까지 넘으면 429 `usage_exceeded`.
   플랜별 값은 `src/common/plan-limits.ts`.
 - "세고 → 비교하고 → 만드는" 상한 검사는 소유 user 행을 `FOR UPDATE`로 잠근 트랜잭션 안에서 tx 클라이언트로만
   한다. 규칙은 service가 check 함수로 넘기고 adapter가 잠근 상태로 부른다(`project`·`source`·`destination` adapter).

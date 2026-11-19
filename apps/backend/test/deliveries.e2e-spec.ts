@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { ValkeyService } from '@/infra/valkey/valkey.service';
 import { DELIVERY_SCHEDULED, DELIVERY_STREAM } from '@/modules/deliveries/adapters/valkey-delivery.queue';
 import type { BulkRetryResultDto, DeliveryDetailDto, DeliveryDto, DeliveryPageDto } from '@/modules/deliveries/dto/delivery.dto';
+import { usageKey } from '@/modules/ingress/adapters/valkey-ingress.counters';
+import { usagePeriod } from '@/modules/ingress/domain/usage-period';
 import { newSlug } from '@/modules/sources/domain/slug';
 import { createTestApp, errorOf, type LoggedIn, type TestApp } from './support';
 
@@ -121,6 +123,26 @@ describe('deliveries (e2e)', () => {
 			expect(await queued(d.id)).toEqual(['manual']);
 		});
 
+		it('보류(held)된 것을 다시 보내면 사용량에 넣는다. 연결이 아직 멈춰 있으면 409 delivery_held, 세지 않는다', async () => {
+			const usage = async () => Number((await valkey.get(usageKey(owner.user_id, usagePeriod(new Date())))) ?? 0);
+			const d = await delivery({ status: 'held' });
+			const before = await usage();
+
+			await t.prisma.connection.update({ where: { id: connectionA }, data: { paused_at: new Date() } });
+			expect(errorOf(await t.http().post(path(projectId, `/${d.id}/retry`)).set(auth(owner)).expect(409)).code).toBe('delivery_held');
+			expect((await row(d.id)).status).toBe('held');
+			expect(await usage()).toBe(before);
+
+			await t.prisma.connection.update({ where: { id: connectionA }, data: { paused_at: null } });
+			await t.http().post(path(projectId, `/${d.id}/retry`)).set(auth(owner)).expect(200);
+			expect(await usage()).toBe(before + 1);
+
+			// held가 아닌 것은 넣지 않는다
+			const dead = await delivery({ status: 'dead' });
+			await t.http().post(path(projectId, `/${dead.id}/retry`)).set(auth(owner)).expect(200);
+			expect(await usage()).toBe(before + 1);
+		});
+
 		it('처리 중(pending)인 것은 409. 없거나 타 project면 404', async () => {
 			const d = await delivery({ status: 'pending' });
 			expect(errorOf(await t.http().post(path(projectId, `/${d.id}/retry`)).set(auth(owner)).expect(409)).code).toBe('delivery_pending');
@@ -132,6 +154,14 @@ describe('deliveries (e2e)', () => {
 	});
 
 	describe('일괄 재시도', () => {
+		it('일시 정지로 보류된(held) 것도 일괄 재시도로 보낼 수 있다', async () => {
+			const held = await delivery({ status: 'held', destination_id: destinationB });
+			const body = (await t.http().post(path(projectId, '/retry')).set(auth(owner)).send({ status: 'held', destination_id: destinationB }).expect(200)).body as BulkRetryResultDto;
+			expect(body.count).toBeGreaterThanOrEqual(1);
+			expect((await row(held.id)).status).toBe('pending');
+			expect(await queued(held.id)).toEqual(['bulk_retry']);
+		});
+
 		it('dead 10건 일괄 재시도 → 전부 pending, bulk_retry 사유로 큐에 들어간다. 조건에 안 맞는 것은 그대로', async () => {
 			const dead: bigint[] = [];
 			for (let i = 0; i < 10; i++) dead.push((await delivery({ status: 'dead', attempt: 10 })).id);

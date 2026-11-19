@@ -68,6 +68,13 @@ class FakeGuard implements DestinationGuard {
 	acquired: { id: number; limit: number; holdMs: number }[] = [];
 	released: string[] = [];
 	recorded: ('success' | 'failure')[] = [];
+	waitMs = 0;
+	throttled: { id: number; limit: number; now: Date }[] = [];
+
+	throttle(id: number, limit: number, now: Date) {
+		this.throttled.push({ id, limit, now });
+		return Promise.resolve(this.waitMs);
+	}
 
 	acquire(id: number, limit: number, holdMs: number) {
 		if (this.full) return Promise.resolve(null);
@@ -126,7 +133,7 @@ describe('DeliveryWorker', () => {
 		client = new FakeClient();
 		queue = new FakeQueue();
 		guard = new FakeGuard();
-		worker = new DeliveryWorker(deliveries as unknown as DeliveryRepository, client, queue as unknown as DeliveryQueue, guard, 'https://app.munjigi.io');
+		worker = new DeliveryWorker(deliveries as unknown as DeliveryRepository, client, queue as unknown as DeliveryQueue, guard, 'https://app.munjigi.io', 5);
 	});
 
 	describe('보내는 요청', () => {
@@ -281,6 +288,24 @@ describe('DeliveryWorker', () => {
 			client.send = () => Promise.reject(new Error('boom'));
 			await expect(run()).rejects.toThrow('boom');
 			expect(guard.released).toEqual(['slot-1']);
+		});
+
+		it('보내기 전에 목적지의 초당 상한을 본다. 상한은 워커에 준 값이다', async () => {
+			expect(await run()).toBe('succeeded');
+			expect(guard.throttled).toEqual([{ id: 7, limit: 5, now: NOW }]);
+		});
+
+		it('초당 상한을 넘었으면 가드가 알려 준 시간 + 0~0.5초 뒤로 미룬다. 시도 횟수를 쓰지 않고 서킷도 자리도 보지 않는다', async () => {
+			guard.waitMs = 800;
+			// 프로브 자리가 남아 있어도 잡지 않는다
+			guard.check = { state: 'half_open', probe: true };
+			const circuit = vi.spyOn(guard, 'circuit');
+
+			expect(await run()).toBe('deferred');
+			// random 0.5면 800 + 250
+			expectDeferred(new Date(NOW.getTime() + 1_050));
+			expect(circuit).not.toHaveBeenCalled();
+			expect(guard.acquired).toEqual([]);
 		});
 
 		it('자리가 다 찼으면 보내지 않고 1~5초 뒤로 미룬다. 시도 횟수를 쓰지 않는다', async () => {

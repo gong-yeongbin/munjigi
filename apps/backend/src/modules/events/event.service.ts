@@ -43,8 +43,13 @@ export class EventService {
 		if (!source) throw new ConflictException({ code: 'source_deleted', message: '소스가 지워진 이벤트는 리플레이할 수 없습니다.' });
 		if (source.connections.length === 0) throw new ConflictException({ code: 'no_connection', message: '연결된 목적지가 없습니다.' });
 
-		const used = await this.counters.incrementUsage(project.user_id, usagePeriod(now));
+		// 수신과 같이 일시 정지한 연결은 세지 않는다
+		const billed = source.connections.filter((connection) => !connection.paused).length;
+		const period = usagePeriod(now);
+		const used = await this.counters.incrementUsage(project.user_id, period, billed);
 		if (project.plan === 'free' && used > INCLUDED_EVENTS.free) {
+			// 만들지 않으므로 올린 사용량을 되돌린다
+			await this.counters.incrementUsage(project.user_id, period, -billed);
 			throw new HttpException({ code: 'usage_exceeded', message: '이번 달 무료 사용량을 넘었습니다.' }, HttpStatus.TOO_MANY_REQUESTS);
 		}
 

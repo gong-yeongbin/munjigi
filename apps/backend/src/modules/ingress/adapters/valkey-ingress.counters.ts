@@ -9,14 +9,26 @@ export const REJECTION_RECORDS_PER_MINUTE = 10;
 const MINUTE_MS = 60_000;
 
 export const usageKey = (userId: number, period: string) => `user:${userId}:usage:${period}`;
+export const heldKey = (userId: number, period: string) => `user:${userId}:held:${period}`;
 export const rejectionKey = (sourceId: number, now: Date) => `source:${sourceId}:rejected:${Math.floor(now.getTime() / MINUTE_MS)}`;
 
 @Injectable()
 export class ValkeyIngressCounters implements IngressCounters {
 	constructor(private readonly valkey: ValkeyService) {}
 
-	incrementUsage(userId: number, period: string): Promise<number> {
-		return this.increment(usageKey(userId, period), USAGE_TTL_SEC);
+	incrementUsage(userId: number, period: string, count: number): Promise<number> {
+		return this.add(usageKey(userId, period), count);
+	}
+
+	incrementHeld(userId: number, period: string, count: number): Promise<number> {
+		return this.add(heldKey(userId, period), count);
+	}
+
+	// 올린 뒤의 값이 count와 같으면 방금 생긴 키다. 만료는 그때 한 번만 건다
+	private async add(key: string, count: number): Promise<number> {
+		const total = await this.valkey.incrby(key, count);
+		if (total === count) await this.valkey.expire(key, USAGE_TTL_SEC);
+		return total;
 	}
 
 	async getUsage(userId: number, period: string): Promise<number> {

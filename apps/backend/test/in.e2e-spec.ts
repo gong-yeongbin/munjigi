@@ -1,7 +1,7 @@
 import { createHmac, randomUUID } from 'node:crypto';
 import { ValkeyService } from '@/infra/valkey/valkey.service';
 import { DELIVERY_STREAM } from '@/modules/deliveries/adapters/valkey-delivery.queue';
-import { usageKey } from '@/modules/ingress/adapters/valkey-ingress.counters';
+import { heldKey, usageKey } from '@/modules/ingress/adapters/valkey-ingress.counters';
 import { usagePeriod } from '@/modules/ingress/domain/usage-period';
 import { newSlug } from '@/modules/sources/domain/slug';
 import type { SourceDto } from '@/modules/sources/dto/get-source.dto';
@@ -69,7 +69,7 @@ describe('in (e2e) — 웹훅 수신', () => {
 		expect(event.deliveries).toHaveLength(2);
 		expect(event.deliveries.every((d) => d.status === 'pending')).toBe(true);
 
-		expect(await usage(owner)).toBe(before + 1);
+		expect(await usage(owner)).toBe(before + 2);
 		const queued = (await valkey.xrevrange(DELIVERY_STREAM, '+', '-', 'COUNT', 500)).map(([, fields]) => fields[1]);
 		expect(queued).toEqual(expect.arrayContaining(event.deliveries.map((d) => d.id.toString())));
 	});
@@ -103,14 +103,16 @@ describe('in (e2e) — 웹훅 수신', () => {
 	describe('서명 검증이 켜진 소스', () => {
 		const sign = (body: string) => `sha256=${createHmac('sha256', SECRET).update(body).digest('hex')}`;
 
-		it('서명이 맞으면 받고, 이벤트 ID 헤더가 같으면 같은 웹훅으로 친다', async () => {
+		it('서명이 맞으면 받고, 이벤트 ID 헤더가 같으면 같은 웹훅으로 친다. 다시 온 것은 사용량에 넣지 않는다', async () => {
 			const delivery = randomUUID();
 			const body = unique();
+			const used = await usage(owner);
 			const first = await json(signed.slug, body).set('X-Hub-Signature-256', sign(body)).set('X-GitHub-Delivery', delivery).expect(200);
 
 			const retry = `${body} `;
 			const again = await json(signed.slug, retry).set('X-Hub-Signature-256', sign(retry)).set('X-GitHub-Delivery', delivery).expect(200);
 			expect((again.body as { id: string }).id).toBe((first.body as { id: string }).id);
+			expect(await usage(owner)).toBe(used + 1);
 		});
 
 		it('서명이 틀리거나 없으면 401 invalid_signature. 저장하지 않고 사용량에 넣지 않고, 거부 기록에 사유와 헤더만 남긴다', async () => {
@@ -169,15 +171,26 @@ describe('in (e2e) — 웹훅 수신', () => {
 		expect((await rejectionsOf(target.id)).map((r) => r.reason)).toEqual(['project_suspended']);
 	});
 
-	it('free user는 월 1,000건까지 받고 그 뒤는 429 usage_exceeded', async () => {
+	it('free user는 월 10,000건까지 전달하고, 넘으면 받아서 저장하되 전달은 보류한다. 보류 상한까지 넘으면 429 usage_exceeded', async () => {
 		const project = await t.prisma.project.create({ data: { user_id: free.user_id, name: 'trial' } });
 		const target = await source(project.id, 1);
-		// 999건을 이미 받은 것으로 둔다
-		await valkey.set(usageKey(free.user_id, usagePeriod(new Date())), 999);
+		const period = usagePeriod(new Date());
+		// 9,999건을 이미 보낸 것으로 둔다
+		await valkey.set(usageKey(free.user_id, period), 9_999);
 
 		await json(target.slug, unique()).expect(200);
+		// 포함량을 넘은 것도 받는다. delivery는 held고 사용량은 그대로다
+		const over = await json(target.slug, unique()).expect(200);
+		const stored = await t.prisma.event.findUniqueOrThrow({ where: { id: BigInt((over.body as { id: string }).id) }, include: { deliveries: true } });
+		expect(stored.deliveries.map((d) => d.status)).toEqual(['held']);
+		expect(await usage(free)).toBe(10_000);
+		expect(await eventsOf(target.id)).toBe(2);
+		expect(await rejectionsOf(target.id)).toEqual([]);
+
+		// 보류로 받아 둔 양이 상한에 닿으면 그때부터 받지 않는다
+		await valkey.set(heldKey(free.user_id, period), 10_000);
 		expect(errorOf(await json(target.slug, unique()).expect(429)).code).toBe('usage_exceeded');
-		expect(await eventsOf(target.id)).toBe(1);
+		expect(await eventsOf(target.id)).toBe(2);
 		expect((await rejectionsOf(target.id)).map((r) => r.reason)).toEqual(['usage_exceeded']);
 	});
 

@@ -61,7 +61,7 @@ export class ConnectionController {
 	@Authenticated()
 	@Post(':connectionId/unpause')
 	@HttpCode(200)
-	@ApiOperation({ summary: '일시 정지를 풀고 보류해 둔 전달을 이어서 보낸다' })
+	@ApiOperation({ summary: '일시 정지를 푼다. 지금부터 들어오는 웹훅을 전달하고, 멈춘 동안 보류된 전달은 그대로 둔다' })
 	@ApiResponse({ status: 200, type: ConnectionDto })
 	@ApiResponse({ status: 404, description: 'connection_not_found' })
 	unpause(@Param() { projectId, connectionId }: ConnectionParamDto): Promise<ConnectionDto> {

@@ -24,7 +24,7 @@ export class PrismaIngressRepository implements IngressRepository {
 				signing_secret_enc: true,
 				signature_config: true,
 				project: { select: { suspended_at: true, user: { select: { id: true, plan: true } } } },
-				connections: { select: { id: true, destination_id: true } },
+				connections: { select: { id: true, destination_id: true, paused_at: true } },
 			},
 		});
 		if (!row) return null;
@@ -36,17 +36,18 @@ export class PrismaIngressRepository implements IngressRepository {
 			suspended: row.project.suspended_at !== null,
 			signing_secret: row.signing_secret_enc === null ? null : this.cipher.decrypt(row.signing_secret_enc),
 			signature_config: row.signature_config === null ? null : signatureConfigSchema.parse(row.signature_config),
-			connections: row.connections,
+			connections: row.connections.map((c) => ({ id: c.id, destination_id: c.destination_id, paused: c.paused_at !== null })),
 		};
 	}
 
 	async storeEvent(event: NewEvent): Promise<StoredEvent> {
-		const { connections, body, ...columns } = event;
+		const { connections, body, held, ...columns } = event;
+		const status = held ? 'held' : 'pending';
 		try {
 			return await this.prisma.$transaction(async (tx) => {
 				const created = await tx.event.create({ data: { ...columns, body: new Uint8Array(body), size: body.length }, select: { id: true } });
 				const deliveries = await tx.delivery.createManyAndReturn({
-					data: connections.map((connection) => ({ event_id: created.id, destination_id: connection.destination_id, connection_id: connection.id })),
+					data: connections.map((connection) => ({ event_id: created.id, destination_id: connection.destination_id, connection_id: connection.id, status })),
 					select: { id: true },
 				});
 				return { event_id: created.id, delivery_ids: deliveries.map((delivery) => delivery.id), duplicate: false };

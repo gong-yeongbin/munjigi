@@ -1,5 +1,6 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
-import type { delivery } from '@prisma/client';
+import type { IngressCounters } from '@/modules/ingress/ports/ingress.counters';
+import type { delivery, Plan } from '@prisma/client';
 import { BULK_RETRY_LIMIT, DeliveryService } from './delivery.service';
 import type { BulkRetryFilter, DeliveryApiRepository, DeliveryFilter } from './ports/delivery-api.repository';
 import type { DeliveryQueue, QueuedDelivery } from './ports/delivery.queue';
@@ -16,6 +17,17 @@ class FakeDeliveries implements DeliveryApiRepository {
 		{ ...base, id: 9n, status: 'dead', project_id: PROJECT + 1 },
 	];
 	bulk: BulkRetryFilter | null = null;
+	limit: number | null = null;
+	// 보류된 것의 연결이 아직 멈춰 있는가
+	paused = false;
+	plan: Plan = 'pro';
+
+	findHeld(projectId: number, id: bigint) {
+		return Promise.resolve(this.mine(projectId, id)?.status === 'held' ? { paused: this.paused } : null);
+	}
+	findOwner() {
+		return Promise.resolve({ user_id: 1, plan: this.plan });
+	}
 
 	private mine(projectId: number, id: bigint) {
 		return this.rows.find((r) => r.project_id === projectId && r.id === id);
@@ -36,6 +48,7 @@ class FakeDeliveries implements DeliveryApiRepository {
 	}
 	markBulkRetry(projectId: number, filter: BulkRetryFilter, limit: number) {
 		this.bulk = filter;
+		this.limit = limit;
 		const picked = this.rows.filter((r) => r.project_id === projectId && r.status === filter.status).slice(0, limit);
 		for (const row of picked) Object.assign(row, { status: 'pending', next_attempt_at: null });
 		return Promise.resolve(picked.map((r) => r.id));
@@ -46,6 +59,19 @@ class FakeDeliveries implements DeliveryApiRepository {
 		if (!['pending', 'failed', 'held'].includes(row.status)) return Promise.resolve('closed' as const);
 		Object.assign(row, { status: 'canceled', next_attempt_at: null });
 		return Promise.resolve(row);
+	}
+}
+
+class FakeCounters implements Pick<IngressCounters, 'incrementUsage' | 'getUsage'> {
+	used = 0;
+	calls: [number, string, number][] = [];
+	incrementUsage(userId: number, period: string, count: number) {
+		this.calls.push([userId, period, count]);
+		this.used += count;
+		return Promise.resolve(this.used);
+	}
+	getUsage() {
+		return Promise.resolve(this.used);
 	}
 }
 
@@ -65,12 +91,14 @@ class FakeQueue implements Pick<DeliveryQueue, 'enqueue' | 'unschedule'> {
 describe('DeliveryService', () => {
 	let deliveries: FakeDeliveries;
 	let queue: FakeQueue;
+	let counters: FakeCounters;
 	let service: DeliveryService;
 
 	beforeEach(() => {
 		deliveries = new FakeDeliveries();
 		queue = new FakeQueue();
-		service = new DeliveryService(deliveries, queue as unknown as DeliveryQueue);
+		counters = new FakeCounters();
+		service = new DeliveryService(deliveries, queue as unknown as DeliveryQueue, counters as unknown as IngressCounters);
 	});
 
 	it('list — 필터(event_id는 BigInt로)·커서를 넘기고 limit + 1로 다음 페이지를 판단한다', async () => {
@@ -98,6 +126,66 @@ describe('DeliveryService', () => {
 			await expect(service.retry(PROJECT, 2n)).rejects.toThrow(ConflictException);
 			await expect(service.retry(PROJECT, 9n)).rejects.toThrow(NotFoundException);
 			expect(queue.enqueued).toEqual([]);
+		});
+	});
+
+	describe('보류(held)된 것을 다시 보내기 — 수신 때 세지 않았으므로 여기서 사용량에 넣는다', () => {
+		const NOW = new Date('2026-10-15T03:00:00Z');
+		const hold = (...ids: bigint[]) => {
+			for (const row of deliveries.rows) if (ids.includes(row.id)) row.status = 'held';
+		};
+
+		it('한 건 재시도 → 사용량 +1. held가 아닌 것은 넣지 않는다', async () => {
+			hold(1n);
+			expect(await service.retry(PROJECT, 1n, NOW)).toMatchObject({ id: 1n, status: 'pending' });
+			expect(counters.calls).toEqual([[1, '202610', 1]]);
+			expect(queue.enqueued).toEqual([{ delivery_id: 1n, trigger: 'manual' }]);
+
+			await service.retry(PROJECT, 3n, NOW);
+			expect(counters.calls).toHaveLength(1);
+		});
+
+		it('연결이 아직 멈춰 있으면 409 delivery_held. 돌리지 않고 세지 않는다', async () => {
+			hold(1n);
+			deliveries.paused = true;
+			await expect(service.retry(PROJECT, 1n, NOW)).rejects.toMatchObject({ response: { code: 'delivery_held' }, status: 409 });
+			expect(deliveries.rows.find((r) => r.id === 1n)!.status).toBe('held');
+			expect(counters.calls).toEqual([]);
+			expect(queue.enqueued).toEqual([]);
+		});
+
+		it('free는 남은 양이 없으면 429 usage_exceeded. 남아 있으면 보내고 센다', async () => {
+			hold(1n);
+			deliveries.plan = 'free';
+			counters.used = 10_000;
+			await expect(service.retry(PROJECT, 1n, NOW)).rejects.toMatchObject({ response: { code: 'usage_exceeded' }, status: 429 });
+			await expect(service.bulkRetry(PROJECT, { status: 'held' }, NOW)).rejects.toMatchObject({ response: { code: 'usage_exceeded' }, status: 429 });
+			expect(deliveries.rows.find((r) => r.id === 1n)!.status).toBe('held');
+			expect(counters.calls).toEqual([]);
+
+			counters.used = 9_999;
+			await service.retry(PROJECT, 1n, NOW);
+			expect(counters.used).toBe(10_000);
+		});
+
+		it('일괄 재시도 → 돌린 수만큼 넣는다. free는 남은 양까지만 돌린다', async () => {
+			hold(1n, 3n);
+			expect(await service.bulkRetry(PROJECT, { status: 'held' }, NOW)).toEqual({ count: 2 });
+			expect(deliveries.limit).toBe(BULK_RETRY_LIMIT);
+			expect(counters.calls).toEqual([[1, '202610', 2]]);
+
+			hold(1n, 3n);
+			deliveries.plan = 'free';
+			counters.used = 9_999;
+			expect(await service.bulkRetry(PROJECT, { status: 'held' }, NOW)).toEqual({ count: 1 });
+			expect(deliveries.limit).toBe(1);
+			expect(counters.used).toBe(10_000);
+		});
+
+		it('held가 아닌 일괄 재시도는 세지 않는다. 맞는 held가 없으면 0', async () => {
+			await service.bulkRetry(PROJECT, { status: 'dead' }, NOW);
+			expect(await service.bulkRetry(PROJECT, { status: 'held' }, NOW)).toEqual({ count: 0 });
+			expect(counters.calls).toEqual([]);
 		});
 	});
 

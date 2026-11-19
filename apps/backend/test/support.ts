@@ -29,6 +29,9 @@ export async function createTestApp(): Promise<TestApp> {
 	configureApp(app);
 	await app.init();
 	await app.getHttpAdapter().getInstance().ready();
+	// 127.0.0.1에 한 번 띄워 둔다. 안 띄우면 supertest가 요청마다 listen(0)으로 모든 주소(::)에 임시 포트를 잡고 127.0.0.1로 접속하는데,
+	// 같은 포트를 127.0.0.1에만 잡아 둔 다른 프로그램(IDE 등)이 있으면 요청이 그쪽으로 가서 엉뚱한 401·404가 온다
+	await app.listen(0, '127.0.0.1');
 	const prisma = app.get(PrismaService);
 
 	// 새 구글 유저로 가입·로그인한다(plan free)

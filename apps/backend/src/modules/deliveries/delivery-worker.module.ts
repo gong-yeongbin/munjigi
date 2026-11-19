@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { DELIVERY_RATE_PER_SEC } from '@/common/plan-limits';
 import { NodeDestinationClient } from './adapters/node-destination.client';
 import { PrismaDeliveryRepository } from './adapters/prisma-delivery.repository';
 import { ValkeyDestinationGuard } from './adapters/valkey-destination.guard';
@@ -8,7 +9,7 @@ import { DeliveryRunner } from './delivery.runner';
 import { DeliveryWorker } from './delivery.worker';
 import { APP_URL, DELIVERY_REPOSITORY } from './ports/delivery.repository';
 import { DESTINATION_CLIENT } from './ports/destination.client';
-import { DESTINATION_GUARD } from './ports/destination.guard';
+import { DELIVERY_RATE, DESTINATION_GUARD } from './ports/destination.guard';
 
 // 전달 워커. 워커 프로세스(consumer.module.ts)만 import한다. API 서버는 큐를 읽지 않는다
 @Module({
@@ -19,6 +20,7 @@ import { DESTINATION_GUARD } from './ports/destination.guard';
 		{ provide: DELIVERY_REPOSITORY, useClass: PrismaDeliveryRepository },
 		{ provide: DESTINATION_CLIENT, useClass: NodeDestinationClient },
 		{ provide: DESTINATION_GUARD, useClass: ValkeyDestinationGuard },
+		{ provide: DELIVERY_RATE, useValue: DELIVERY_RATE_PER_SEC },
 		{ provide: APP_URL, inject: [ConfigService], useFactory: (config: ConfigService) => config.getOrThrow<string>('APP_URL') },
 	],
 })

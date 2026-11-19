@@ -8,15 +8,15 @@ import { UsageService } from './usage.service';
 class FakeUsage implements UsageRepository {
 	plans = new Map<number, Plan>([[1, 'pro']]);
 	projects: ProjectUsage[] = [
-		{ project_id: 10, name: 'shop', event_count: 812 },
-		{ project_id: 11, name: 'blog', event_count: 0 },
+		{ project_id: 10, name: 'shop', delivery_count: 812 },
+		{ project_id: 11, name: 'blog', delivery_count: 0 },
 	];
 	since: Date | null = null;
 
 	findPlan(userId: number) {
 		return Promise.resolve(this.plans.get(userId) ?? null);
 	}
-	countEventsByProject(_userId: number, since: Date) {
+	countDeliveriesByProject(_userId: number, since: Date) {
 		this.since = since;
 		return Promise.resolve(this.projects);
 	}
@@ -43,11 +43,11 @@ describe('UsageService', () => {
 		expect(usage.since).toEqual(new Date('2026-09-30T15:00:00Z'));
 	});
 
-	it('get — free는 포함량 1,000', async () => {
+	it('get — free는 포함량 10,000', async () => {
 		const usage = new FakeUsage();
 		usage.plans.set(2, 'free');
 		const service = new UsageService(usage, new FakeCounters() as unknown as IngressCounters);
-		expect((await service.get(2, new Date('2026-10-15T03:00:00Z'))).included).toBe(1_000);
+		expect((await service.get(2, new Date('2026-10-15T03:00:00Z'))).included).toBe(10_000);
 	});
 
 	it('get — 없는 user는 404 user_not_found', async () => {

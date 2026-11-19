@@ -4,10 +4,10 @@ import { nextAttemptAt, willRetryAfterSec } from './domain/retry-schedule';
 import { DELIVERY_QUEUE, type DeliveryQueue, type QueuedDelivery } from './ports/delivery.queue';
 import { APP_URL, DELIVERY_REPOSITORY, type DeliveryRepository } from './ports/delivery.repository';
 import { DESTINATION_CLIENT, type DestinationClient, type DestinationRequest, type DestinationResponse } from './ports/destination.client';
-import { DESTINATION_GUARD, type DestinationGuard } from './ports/destination.guard';
+import { DELIVERY_RATE, DESTINATION_GUARD, type DestinationGuard } from './ports/destination.guard';
 
 // 처리 결과. skipped는 손댈 것이 없었다는 뜻이다(지워졌거나, 이미 끝났거나, 다른 워커가 먼저 처리했다).
-// deferred는 목적지 자리가 없거나 서킷이 열려 보내지 않고 뒤로 미룬 것이다
+// deferred는 목적지의 초당 상한을 넘었거나, 자리가 없거나, 서킷이 열려 보내지 않고 뒤로 미룬 것이다
 export type WorkResult = 'succeeded' | 'failed' | 'dead' | 'held' | 'canceled' | 'skipped' | 'deferred';
 
 // 자리가 없거나 프로브를 기다릴 때 다시 보는 간격. 1~5초 사이로 흩뜨려 한꺼번에 몰리지 않게 한다
@@ -15,6 +15,8 @@ const DEFER_MIN_MS = 1_000;
 const DEFER_SPREAD_MS = 4_000;
 // 잡은 자리를 목적지 타임아웃보다 이만큼 더 둔다. 응답을 받고 자리를 놓기까지의 여유다
 const SLOT_GRACE_MS = 5_000;
+// 초당 상한에 걸려 뒤 초로 보낼 때 그 초 안에서 흩뜨리는 폭
+const THROTTLE_SPREAD_MS = 500;
 
 // delivery 하나를 목적지로 보내고 결과를 남긴다. at-least-once다. 같은 delivery가 두 번 전달될 수 있다
 @Injectable()
@@ -25,6 +27,7 @@ export class DeliveryWorker {
 		@Inject(DELIVERY_QUEUE) private readonly queue: DeliveryQueue,
 		@Inject(DESTINATION_GUARD) private readonly guard: DestinationGuard,
 		@Inject(APP_URL) private readonly appUrl: string,
+		@Inject(DELIVERY_RATE) private readonly ratePerSec: number,
 	) {}
 
 	// random은 재시도 간격을 흩뜨리는 값(0 이상 1 미만)
@@ -43,6 +46,11 @@ export class DeliveryWorker {
 			await this.deliveries.close(delivery.id, 'held');
 			return 'held';
 		}
+
+		// 목적지의 초당 상한을 넘었으면 뒤 초로 미룬다. 시도 횟수를 쓰지 않는다.
+		// 서킷보다 먼저 본다. 프로브 자리를 잡은 뒤에 미루면 프로브가 묶인다
+		const waitMs = await this.guard.throttle(destination.id, this.ratePerSec, now);
+		if (waitMs > 0) return this.postpone(delivery.id, new Date(now.getTime() + waitMs + Math.round(THROTTLE_SPREAD_MS * random)));
 
 		// 서킷이 열려 있으면 풀릴 때까지, half_open인데 프로브를 다른 워커가 잡았으면 잠깐 미룬다. 시도 횟수를 쓰지 않는다
 		const circuit = await this.guard.circuit(destination.id);
@@ -119,9 +127,13 @@ export class DeliveryWorker {
 		}
 	}
 
-	// 보내지 않고 waitMs + 1~5초 뒤로 미룬다. DB에도 적어 sweeper가 큐에 또 넣지 않게 한다
-	private async defer(id: bigint, now: Date, waitMs: number, random: number): Promise<WorkResult> {
-		const at = new Date(now.getTime() + waitMs + DEFER_MIN_MS + Math.round(DEFER_SPREAD_MS * random));
+	// 보내지 않고 waitMs + 1~5초 뒤로 미룬다
+	private defer(id: bigint, now: Date, waitMs: number, random: number): Promise<WorkResult> {
+		return this.postpone(id, new Date(now.getTime() + waitMs + DEFER_MIN_MS + Math.round(DEFER_SPREAD_MS * random)));
+	}
+
+	// 보내지 않고 at으로 미룬다. DB에도 적어 sweeper가 큐에 또 넣지 않게 한다
+	private async postpone(id: bigint, at: Date): Promise<WorkResult> {
 		await this.deliveries.defer(id, at);
 		await this.queue.schedule(id, at);
 		return 'deferred';

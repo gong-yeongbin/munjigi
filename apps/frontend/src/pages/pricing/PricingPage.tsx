@@ -6,11 +6,11 @@ import { buttonVariants } from '@/components/ui/button';
 import { PublicLayout, useWaiting } from '@/layout/PublicLayout';
 
 // 값은 plan.md 결정 11과 백엔드 plan-limits.ts와 같다. 바꾸면 셋을 같이 바꾼다.
-// 초과 단가의 구간 할인(500만 건 이후)은 여기 안 적는다. 볼 사람이 거의 없다.
+// 초과 단가의 구간 할인(500만 건 이후)과 1만 건 단위 계산은 카드에 안 적고 FAQ 첫 답에 적는다
 // business는 team과 보존일만 달라 요금표에서 뺐다. 차별화는 billing 때 정한다
 const PLANS = [
-	{ name: 'Starter', price: '0원', featured: false, rows: ['월 1,000 이벤트', '초과하면 수신 중단', '프로젝트 1개', '소스·목적지 각 3개', '보존 3일'] },
-	{ name: 'Pro', price: '49,000원', featured: true, rows: ['월 10,000 이벤트', '초과분 10만 건당 10,000원부터', '프로젝트 무제한', '소스·목적지 무제한', '보존 7일'] },
+	{ name: 'Starter', price: '0원', featured: false, rows: ['월 10,000건 전달', '초과하면 전달 보류', '프로젝트 1개', '소스·목적지 각 3개', '목적지당 초당 5건 전달', '보존 3일'] },
+	{ name: 'Pro', price: '49,900원', featured: true, rows: ['월 10,000건 전달', '초과분 10만 건당 5,000원부터', '프로젝트 무제한', '소스·목적지 무제한', '목적지당 초당 5건 전달', '보존 7일'] },
 ];
 
 // 플랜과 무관하게 전부 들어 있는 것
@@ -25,7 +25,7 @@ export function PricingPage() {
 				{/* 880px 열을 가운데에. 글은 열 안에서 왼쪽 정렬 */}
 				<div className="mx-auto max-w-[880px]">
 					<h1 className="text-[40px] font-bold tracking-tight">요금</h1>
-					<p className="mt-4 text-lg text-cobalt-muted">월 요금에 포함된 이벤트를 넘으면 사용한 만큼만 추가로 과금됩니다.</p>
+					<p className="mt-4 text-lg text-cobalt-muted">월 요금에 포함된 전달 건수를 넘으면 사용한 만큼만 추가로 과금됩니다.</p>
 
 					{/* 선 없이 칸 둘. Team은 랜딩의 코발트 블록과 같은 색 */}
 					<div className="mt-12 grid grid-cols-2 gap-2">

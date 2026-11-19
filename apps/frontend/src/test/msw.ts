@@ -38,7 +38,7 @@ export const CONNECTIONS: Connection[] = [
 
 export const ME: Me = { id: 1, email: 'seed@munjigi.local', name: '시드', avatar_url: null, plan: 'pro', is_admin: false, created_at: '2026-09-01T00:00:00.000Z', updated_at: '2026-09-01T00:00:00.000Z' };
 
-export const USAGE: Usage = { period: '202610', period_start: '2026-09-30T15:00:00.000Z', plan: 'pro', included: 10000, used: 1284, projects: [{ project_id: 10, name: 'shop', event_count: 812 }, { project_id: 11, name: 'blog', event_count: 0 }] };
+export const USAGE: Usage = { period: '202610', period_start: '2026-09-30T15:00:00.000Z', plan: 'pro', included: 10000, used: 1284, projects: [{ project_id: 10, name: 'shop', delivery_count: 812 }, { project_id: 11, name: 'blog', delivery_count: 0 }] };
 
 export const REJECTED: RejectedRequest[] = [
 	{ id: '51', project_id: 10, source_id: 7, reason: 'signature_mismatch', headers: { 'x-signature': 'bad' }, size: 11, received_at: '2026-10-15T02:00:00.000Z' },

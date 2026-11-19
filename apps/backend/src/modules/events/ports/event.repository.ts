@@ -9,7 +9,7 @@ export type EventFilter = { source_id?: number; received_after?: Date; received_
 // 리플레이 판단에 필요한 것. 소스가 지워졌으면 source는 null이다
 export type ReplaySource = {
 	event: event;
-	source: { id: number; connections: { id: number; destination_id: number }[] } | null;
+	source: { id: number; connections: { id: number; destination_id: number; paused: boolean }[] } | null;
 	project: { user_id: number; plan: Plan; suspended: boolean };
 };
 export type NewReplay = {

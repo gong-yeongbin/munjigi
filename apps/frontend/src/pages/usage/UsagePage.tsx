@@ -34,18 +34,19 @@ export function UsagePage() {
 						</p>
 						<p className="mt-2 text-[40px] leading-none font-medium tracking-tight">
 							{u.used.toLocaleString()}
-							<span className="ml-2 text-base font-normal text-muted-foreground">/ {u.included.toLocaleString()} 이벤트</span>
+							<span className="ml-2 text-base font-normal text-muted-foreground">/ {u.included.toLocaleString()} 전달</span>
 						</p>
 						<div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-muted" role="progressbar" aria-label="포함량 대비 사용량" aria-valuemin={0} aria-valuemax={u.included} aria-valuenow={Math.min(u.used, u.included)}>
 							<div className={over ? 'h-full bg-bad' : 'h-full bg-primary'} style={{ width: `${ratio * 100}%` }} />
 						</div>
 						<p className="mt-3 text-sm text-muted-foreground">
-							{over
-								? u.plan === 'free'
-									? `포함량을 ${(u.used - u.included).toLocaleString()}건 넘었습니다. Free는 남은 웹훅을 429로 거부합니다. 다음 달 1일에 다시 받습니다.`
-									: `포함량을 ${(u.used - u.included).toLocaleString()}건 넘었습니다. 넘은 만큼 10만 건당 10,000원부터 청구됩니다.`
-								: u.plan === 'free'
-									? `${(u.included - u.used).toLocaleString()}건 남았습니다. 넘으면 그 달 남은 웹훅은 429로 거부됩니다.`
+							{/* Starter는 포함량을 넘겨 세지 않는다. 다 쓰면 받아만 두고 전달을 보류한다 */}
+							{u.plan === 'free'
+								? u.used >= u.included
+									? '이번 달 포함량을 다 썼습니다. 들어오는 웹훅은 받아 두고 전달은 보류합니다. 다음 달 1일부터 다시 전달합니다.'
+									: `${(u.included - u.used).toLocaleString()}건 남았습니다. 다 쓰면 웹훅은 계속 받아 두고 전달만 보류합니다.`
+								: over
+									? `포함량을 ${(u.used - u.included).toLocaleString()}건 넘었습니다. 넘은 만큼 10만 건당 5,000원부터 청구됩니다.`
 									: `${(u.included - u.used).toLocaleString()}건 남았습니다. 넘으면 넘은 만큼만 종량으로 청구됩니다.`}{' '}
 							<Link to="/pricing" className="text-primary underline-offset-4 hover:underline">
 								요금
@@ -59,14 +60,14 @@ export function UsagePage() {
 							<TableHeader>
 								<TableRow className="hover:bg-transparent">
 									<TableHead className="pl-5">프로젝트</TableHead>
-									<TableHead className="w-[160px] text-right">이벤트</TableHead>
+									<TableHead className="w-[160px] text-right">전달</TableHead>
 								</TableRow>
 							</TableHeader>
 							<TableBody>
 								{u.projects.map((p) => (
 									<TableRow key={p.project_id} className="h-[42px]">
 										<TableCell className="pl-5">{p.name}</TableCell>
-										<TableCell className="text-right">{p.event_count.toLocaleString()}</TableCell>
+										<TableCell className="text-right">{p.delivery_count.toLocaleString()}</TableCell>
 									</TableRow>
 								))}
 								{u.projects.length === 0 && (
@@ -78,7 +79,7 @@ export function UsagePage() {
 								)}
 							</TableBody>
 						</Table>
-						<p className="px-5 pt-3 pb-5 text-xs text-muted-foreground">위 합계는 청구 기준이고 프로젝트별 수는 지금 남아 있는 이벤트를 센 것이라, 보존 기간이 지나 지워진 만큼 작을 수 있습니다. 리플레이는 세고 거부된 요청은 세지 않습니다.</p>
+						<p className="px-5 pt-3 pb-5 text-xs text-muted-foreground">위 합계는 청구 기준이고 프로젝트별 수는 지금 남아 있는 전달을 센 것이라, 보존 기간이 지나 지워진 만큼 작을 수 있습니다. 웹훅 하나가 목적지 여러 곳으로 가면 목적지마다 한 건입니다. 리플레이와 보류된 전달을 다시 보낸 것은 세고, 그 밖의 재시도와 거부된 요청은 세지 않습니다.</p>
 					</section>
 				</>
 			)}

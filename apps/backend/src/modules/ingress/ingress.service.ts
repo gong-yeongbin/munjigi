@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import type { Prisma, RejectionReason } from '@prisma/client';
 import { INGRESS_BODY_LIMIT } from '@/common/http/ingress-body';
-import { INCLUDED_EVENTS } from '@/common/plan-limits';
+import { FREE_HOLD_LIMIT, INCLUDED_EVENTS } from '@/common/plan-limits';
 import { SLUG_LENGTH } from '@/modules/sources/domain/slug';
 import { idempotencyKey } from './domain/idempotency';
 import { type RequestHeaders, verifySignature } from './domain/signature';
@@ -88,9 +88,17 @@ export class IngressService {
 			if (verified !== 'ok') return this.reject(source, verified, webhook);
 		}
 
-		// 저장보다 먼저 올리므로 같은 웹훅이 다시 와도 센다
-		const used = await this.counters.incrementUsage(source.user_id, usagePeriod(webhook.now));
-		if (source.plan === 'free' && used > INCLUDED_EVENTS.free) return this.reject(source, 'usage_exceeded', webhook);
+		// 과금 단위는 목적지로 보내는 전달이라 연결 수만큼 올린다. 일시 정지한 연결은 지금 보내지 않으므로 뺀다.
+		const period = usagePeriod(webhook.now);
+		const billed = source.connections.filter((connection) => !connection.paused).length;
+		const used = await this.counters.incrementUsage(source.user_id, period, billed);
+		// free가 포함량을 넘으면(걸쳐도 통째로) 받아서 저장은 하되 전달은 보류한다. 보내지 않으므로 올린 사용량은 되돌린다.
+		// 보류로 받아 두는 양에도 끝이 있다. 그 뒤로는 받지 않는다
+		const held = source.plan === 'free' && used > INCLUDED_EVENTS.free;
+		if (held) {
+			await this.counters.incrementUsage(source.user_id, period, -billed);
+			if ((await this.counters.incrementHeld(source.user_id, period, billed)) > FREE_HOLD_LIMIT) return this.reject(source, 'usage_exceeded', webhook);
+		}
 
 		const contentType = webhook.headers['content-type'];
 		const stored = await this.repository.storeEvent({
@@ -105,9 +113,12 @@ export class IngressService {
 			headers: definedHeaders(webhook.headers),
 			body: webhook.body,
 			content_type: typeof contentType === 'string' ? contentType : null,
+			held,
 			connections: source.connections,
 		});
-		if (!stored.duplicate) await this.enqueue(stored.delivery_ids);
+		// 같은 웹훅이 다시 온 것은 저장도 전달도 하지 않는다. 저장 전에 올린 것을 되돌린다
+		if (stored.duplicate) await (held ? this.counters.incrementHeld(source.user_id, period, -billed) : this.counters.incrementUsage(source.user_id, period, -billed));
+		else if (!held) await this.enqueue(stored.delivery_ids);
 		return { id: stored.event_id };
 	}
 

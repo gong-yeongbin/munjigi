@@ -26,11 +26,11 @@ Authorization: Bearer {{token}}
 POST {{baseUrl}}/projects/{{projectId}}/deliveries/{{deliveryId}}/cancel
 Authorization: Bearer {{token}}
 
-### 수동 재시도 — pending으로 돌리고 manual 사유로 큐에 넣는다(200). 처리 중이면 409 delivery_pending
+### 수동 재시도 — pending으로 돌리고 manual 사유로 큐에 넣는다(200). 처리 중이면 409 delivery_pending. 보류(held)된 것은 사용량에 넣고, 연결이 아직 멈춰 있으면 409 delivery_held
 POST {{baseUrl}}/projects/{{projectId}}/deliveries/{{deliveryId}}/retry
 Authorization: Bearer {{token}}
 
-### 일괄 재시도 — dead인 것을 한꺼번에(최대 1,000건). 돌린 수를 준다
+### 일괄 재시도 — dead인 것을 한꺼번에(최대 1,000건). 돌린 수를 준다. status는 dead·failed·canceled·held. held는 돌린 수만큼 사용량에 넣는다
 POST {{baseUrl}}/projects/{{projectId}}/deliveries/retry
 Authorization: Bearer {{token}}
 Content-Type: application/json

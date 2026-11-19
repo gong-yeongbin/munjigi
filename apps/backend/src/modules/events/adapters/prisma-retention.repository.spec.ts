@@ -13,7 +13,9 @@ describe('PrismaRetentionRepository (통합)', () => {
 	const prisma = new PrismaService(new ConfigService({ DATABASE_URL: process.env.DATABASE_URL }));
 	const retention = new PrismaRetentionRepository(prisma);
 	const runner = new RetentionRunner(retention);
-	const now = new Date();
+	// 보존 삭제는 플랜 전체를 대상으로 하므로 실제 지금 시각으로 돌리면 같은 DB의 다른 테스트가 만든 오래된 event까지 지운다
+	// (고정 날짜를 쓰는 테스트가 그렇게 깨졌다). 아무 데이터도 없는 먼 과거를 "지금"으로 삼아 이 테스트의 행만 걸리게 한다
+	const now = new Date('2000-03-01T00:00:00Z');
 	const orgs: number[] = [];
 
 	// 플랜별 조직 하나에 project·source·destination·연결을 만들고, daysAgo일 전에 받은 event(delivery·attempt 포함)와 거부 기록을 하나씩 만든다

@@ -29,7 +29,7 @@ const original: event = { ...row, body: new Uint8Array(BODY) };
 // port를 in-memory fake로 둔다
 class FakeEvents implements EventRepository {
 	rows = [row, { ...row, id: 119n, source_id: null }];
-	replay: ReplaySource | null = { event: original, source: { id: 7, connections: [{ id: 1, destination_id: 3 }] }, project: { user_id: 1, plan: 'pro', suspended: false } };
+	replay: ReplaySource | null = { event: original, source: { id: 7, connections: [{ id: 1, destination_id: 3, paused: false }] }, project: { user_id: 1, plan: 'pro', suspended: false } };
 	stored: NewReplay | null = null;
 
 	list(projectId: number, filter: { source_id?: number }, cursor: bigint | null, take: number) {
@@ -53,10 +53,11 @@ class FakeEvents implements EventRepository {
 
 class FakeCounters implements Pick<IngressCounters, 'incrementUsage'> {
 	used = 0;
-	calls: [number, string][] = [];
-	incrementUsage(userId: number, period: string) {
-		this.calls.push([userId, period]);
-		return Promise.resolve(++this.used);
+	calls: [number, string, number][] = [];
+	incrementUsage(userId: number, period: string, count: number) {
+		this.calls.push([userId, period, count]);
+		this.used += count;
+		return Promise.resolve(this.used);
 	}
 }
 
@@ -97,7 +98,7 @@ describe('EventService', () => {
 	});
 
 	describe('replay', () => {
-		it('원본의 방식·경로·쿼리·헤더·본문·IP·verified로 새 event를 만들고, 지금 연결마다 delivery를 initial 사유로 큐에 넣는다. 사용량 +1', async () => {
+		it('원본의 방식·경로·쿼리·헤더·본문·IP·verified로 새 event를 만들고, 지금 연결마다 delivery를 initial 사유로 큐에 넣는다. 사용량은 연결 수만큼', async () => {
 			const replayed = await service.replay(PROJECT, 120n, NOW);
 
 			expect(events.stored).toMatchObject({ project_id: PROJECT, source_id: 7, method: 'PUT', path: '/orders/7', query: 'x=1', source_ip: '203.0.113.7', verified: true, headers: { 'content-type': 'application/json' }, content_type: 'application/json', connections: [{ id: 1, destination_id: 3 }] });
@@ -105,7 +106,7 @@ describe('EventService', () => {
 			expect(events.stored!.idempotency_key).toBe(`replay:120:${NOW.getTime()}`);
 			expect(replayed).toMatchObject({ id: 121n, project_id: PROJECT });
 			expect(replayed).not.toHaveProperty('body');
-			expect(counters.calls).toEqual([[1, '202610']]);
+			expect(counters.calls).toEqual([[1, '202610', 1]]);
 			expect(queue.enqueued).toEqual([{ delivery_id: 1n, trigger: 'initial' }]);
 		});
 
@@ -125,15 +126,38 @@ describe('EventService', () => {
 			expect(events.stored).toBeNull();
 		});
 
-		it('free 조직이 월 상한을 넘었으면 429. 사용량은 저장 전에 올리므로 올라간 채다', async () => {
+		it('free 조직이 월 상한을 넘었으면 429. 만들지 않으므로 올린 사용량은 되돌린다', async () => {
 			events.replay!.project.plan = 'free';
-			counters.used = 1000;
+			counters.used = 10_000;
 			await expect(service.replay(PROJECT, 120n, NOW)).rejects.toMatchObject({ response: { code: 'usage_exceeded' }, status: 429 });
 			await expect(service.replay(PROJECT, 120n, NOW)).rejects.toThrow(HttpException);
 			expect(events.stored).toBeNull();
 
-			counters.used = 998;
+			// 연결이 둘이면 2건이다. 남은 1건에 걸치면 통째로 거부하고, 딱 맞으면 받는다
+			events.replay!.source!.connections = [
+				{ id: 1, destination_id: 3, paused: false },
+				{ id: 2, destination_id: 4, paused: false },
+			];
+			counters.used = 9_999;
+			await expect(service.replay(PROJECT, 120n, NOW)).rejects.toMatchObject({ response: { code: 'usage_exceeded' }, status: 429 });
+			expect(counters.calls.slice(-2)).toEqual([
+				[1, '202610', 2],
+				[1, '202610', -2],
+			]);
+			expect(counters.used).toBe(9_999);
+
+			counters.used = 9_998;
 			await expect(service.replay(PROJECT, 120n, NOW)).resolves.toMatchObject({ id: 121n });
+		});
+
+		it('일시 정지한 연결은 delivery는 만들되 사용량에 넣지 않는다', async () => {
+			events.replay!.source!.connections = [
+				{ id: 1, destination_id: 3, paused: false },
+				{ id: 2, destination_id: 4, paused: true },
+			];
+			await service.replay(PROJECT, 120n, NOW);
+			expect(counters.calls).toEqual([[1, '202610', 1]]);
+			expect(queue.enqueued).toHaveLength(2);
 		});
 
 		it('큐 적재가 실패해도 만든 것으로 답한다(sweeper가 다시 넣는다)', async () => {

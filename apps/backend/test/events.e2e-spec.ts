@@ -104,7 +104,7 @@ describe('events (e2e)', () => {
 	});
 
 	describe('리플레이', () => {
-		it('원본의 방식·경로·쿼리·헤더·본문으로 새 event를 만들고 지금 걸린 연결마다 delivery를 만들어 큐에 넣는다. 사용량 +1', async () => {
+		it('원본의 방식·경로·쿼리·헤더·본문으로 새 event를 만들고 지금 걸린 연결마다 delivery를 만들어 큐에 넣는다. 사용량은 연결 수만큼', async () => {
 			const original = await receive(source.slug, '{"order":"replay"}', '/orders/7?x=1');
 			// 리플레이 시점의 연결 기준이다. 목적지를 하나 더 잇는다
 			const added = await t.prisma.destination.create({ data: { project_id: projectId, name: 'added', url: 'https://example.com/added' } });
@@ -116,7 +116,7 @@ describe('events (e2e)', () => {
 			expect(replayed).toMatchObject({ project_id: projectId, source_id: source.id, method: 'PUT', path: '/orders/7', query: 'x=1', content_type: 'application/json', headers: { 'x-vendor': 'toss' }, size: 18 });
 			expect(replayed.idempotency_key).toMatch(new RegExp(`^replay:${original}:\\d+$`));
 			expect(replayed).not.toHaveProperty('body');
-			expect(await usage(owner)).toBe(used + 1);
+			expect(await usage(owner)).toBe(used + 2);
 
 			const stored = await t.prisma.event.findUniqueOrThrow({ where: { id: BigInt(replayed.id) }, include: { deliveries: true } });
 			expect(Buffer.from(stored.body).toString()).toBe('{"order":"replay"}');
@@ -147,7 +147,7 @@ describe('events (e2e)', () => {
 			const event = await t.prisma.event.create({ data: { project_id: freeProject.id, source_id: freeSource.id, idempotency_key: `k:${randomUUID()}`, headers: {}, body: new Uint8Array(2), size: 2 } });
 			const freePath = `/projects/${freeProject.id}/events/${event.id}/replay`;
 
-			await valkey.set(usageKey(free.user_id, usagePeriod(new Date())), 1000);
+			await valkey.set(usageKey(free.user_id, usagePeriod(new Date())), 10_000);
 			expect(errorOf(await t.http().post(freePath).set(auth(free)).expect(429)).code).toBe('usage_exceeded');
 			expect(await t.prisma.event.count({ where: { project_id: freeProject.id } })).toBe(1);
 

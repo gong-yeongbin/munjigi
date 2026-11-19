@@ -32,6 +32,7 @@ describe('PrismaIngressRepository (통합)', () => {
 		headers: { 'content-type': 'application/json' },
 		body: Buffer.from('{"order":1}'),
 		content_type: 'application/json',
+		held: false,
 		connections,
 		...overrides,
 	});
@@ -61,9 +62,21 @@ describe('PrismaIngressRepository (통합)', () => {
 			suspended: false,
 			signing_secret: 'whsec_plain',
 			signature_config: SIGNATURE,
-			connections: expect.arrayContaining(connections) as typeof connections,
+			connections: expect.arrayContaining(connections.map((c) => ({ ...c, paused: false }))) as typeof connections,
 		});
 		expect(await repository.findSourceBySlug(newSlug())).toBeNull();
+	});
+
+	it('findSourceBySlug — 일시 정지한 연결은 paused로 알려 준다', async () => {
+		await prisma.connection.update({ where: { id: connections[1]!.id }, data: { paused_at: new Date() } });
+		const found = await repository.findSourceBySlug(slug);
+		expect(found!.connections).toEqual(
+			expect.arrayContaining([
+				{ ...connections[0]!, paused: false },
+				{ ...connections[1]!, paused: true },
+			]),
+		);
+		await prisma.connection.update({ where: { id: connections[1]!.id }, data: { paused_at: null } });
 	});
 
 	it('findSourceBySlug — 서명 설정이 없는 소스, 연결이 없는 소스, 정지된 프로젝트', async () => {
@@ -88,6 +101,13 @@ describe('PrismaIngressRepository (통합)', () => {
 		expect(row.deliveries.map((d) => d.id).sort()).toEqual([...stored.delivery_ids].sort());
 		expect(row.deliveries.every((d) => d.status === 'pending' && d.attempt === 0 && d.next_attempt_at === null)).toBe(true);
 		expect(row.deliveries.map((d) => d.destination_id).sort()).toEqual([...destinationIds].sort());
+	});
+
+	it('storeEvent — held면 delivery를 held로 만든다', async () => {
+		const stored = await repository.storeEvent(event({ held: true }));
+		const rows = await prisma.delivery.findMany({ where: { event_id: stored.event_id } });
+		expect(rows.map((d) => d.status)).toEqual(['held', 'held']);
+		expect(stored.delivery_ids).toHaveLength(2);
 	});
 
 	it('storeEvent — 같은 소스에 같은 멱등 키면 새로 만들지 않고 처음 것을 가리킨다', async () => {

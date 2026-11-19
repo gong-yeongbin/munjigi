@@ -9,7 +9,7 @@ import { ProjectParamDto } from '@/modules/projects/dto/get-project.dto';
 export const DELIVERY_STATUSES = ['pending', 'succeeded', 'failed', 'dead', 'canceled', 'held'] as const satisfies readonly DeliveryStatus[];
 export const ATTEMPT_TRIGGERS = ['initial', 'automatic', 'manual', 'bulk_retry', 'unpause'] as const satisfies readonly AttemptTrigger[];
 // 일괄 재시도로 되돌릴 수 있는 상태
-export const BULK_RETRY_STATUSES = ['dead', 'failed', 'canceled'] as const satisfies readonly DeliveryStatus[];
+export const BULK_RETRY_STATUSES = ['dead', 'failed', 'canceled', 'held'] as const satisfies readonly DeliveryStatus[];
 
 // delivery id는 BigInt라 문자열로 받는다. 핸들러가 BigInt로 바꾼다
 export class DeliveryParamDto extends ProjectParamDto {
@@ -79,7 +79,7 @@ export class DeliveryDto {
 	@ApiProperty({ type: Number, nullable: true, description: '이 전달을 만든 연결. 그 뒤 지워졌으면 null', example: 12 })
 	connection_id: number | null;
 
-	@ApiProperty({ enum: DELIVERY_STATUSES, description: 'pending 큐 대기·처리 중, failed 재시도 대기, dead 재시도 소진, canceled 취소, held 일시 정지·프로젝트 정지로 보류' })
+	@ApiProperty({ enum: DELIVERY_STATUSES, description: 'pending 큐 대기·처리 중, failed 재시도 대기, dead 재시도 소진, canceled 취소, held 일시 정지·프로젝트 정지로 보류(풀어도 저절로 나가지 않는다. 재시도로 보낸다)' })
 	status: DeliveryStatus;
 
 	@ApiProperty({ description: '지금까지 한 시도 수', example: 2 })
@@ -111,7 +111,7 @@ export class DeliveryAttemptDto {
 	@ApiProperty({ example: 1 })
 	attempt_no: number;
 
-	@ApiProperty({ enum: ATTEMPT_TRIGGERS, description: '이 시도를 만든 것. initial 첫 시도, automatic 자동 재시도, manual 수동 재시도, bulk_retry 일괄 재시도, unpause 일시 정지 해제' })
+	@ApiProperty({ enum: ATTEMPT_TRIGGERS, description: '이 시도를 만든 것. initial 첫 시도, automatic 자동 재시도, manual 수동 재시도, bulk_retry 일괄 재시도, unpause 일시 정지 해제(예전 기록에만 있다)' })
 	trigger: AttemptTrigger;
 
 	@ApiProperty({ type: Number, nullable: true, example: 503 })

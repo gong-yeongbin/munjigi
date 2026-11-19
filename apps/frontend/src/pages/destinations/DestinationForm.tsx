@@ -76,7 +76,7 @@ export function DestinationForm({ destination, idPrefix, submitLabel, pending, o
 					</label>
 					<Input id={id('concurrency')} type="number" min={1} max={100} className="mt-1.5" value={concurrency} onChange={(e) => setConcurrency(Number(e.target.value))} />
 				</div>
-				<p className="col-span-2 text-xs text-muted-foreground">타임아웃을 넘기면 실패로 보고 재시도합니다. 동시 요청 수를 넘는 전달은 자리가 날 때까지 1~5초 미룹니다.</p>
+				<p className="col-span-2 text-xs text-muted-foreground">타임아웃을 넘기면 실패로 보고 재시도합니다. 동시 요청 수를 넘는 전달은 자리가 날 때까지 1~5초 미룹니다. 이와 별개로 목적지 한 곳으로는 초당 5건까지만 보냅니다.</p>
 			</div>
 
 			<div className="flex justify-end gap-2">

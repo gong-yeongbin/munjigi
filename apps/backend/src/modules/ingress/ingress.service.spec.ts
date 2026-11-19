@@ -26,8 +26,8 @@ class FakeRepository implements IngressRepository {
 		signing_secret: null,
 		signature_config: null,
 		connections: [
-			{ id: 30, destination_id: 3 },
-			{ id: 40, destination_id: 4 },
+			{ id: 30, destination_id: 3, paused: false },
+			{ id: 40, destination_id: 4, paused: false },
 		],
 	};
 	lookups = 0;
@@ -53,12 +53,19 @@ class FakeRepository implements IngressRepository {
 
 class FakeCounters implements IngressCounters {
 	usage = new Map<string, number>();
+	held = new Map<string, number>();
 	rejectionRecordAllowed = true;
 
-	incrementUsage(userId: number, period: string) {
+	incrementUsage(userId: number, period: string, added: number) {
 		const key = `${userId}:${period}`;
-		const count = (this.usage.get(key) ?? 0) + 1;
+		const count = (this.usage.get(key) ?? 0) + added;
 		this.usage.set(key, count);
+		return Promise.resolve(count);
+	}
+	incrementHeld(userId: number, period: string, added: number) {
+		const key = `${userId}:${period}`;
+		const count = (this.held.get(key) ?? 0) + added;
+		this.held.set(key, count);
 		return Promise.resolve(count);
 	}
 	getUsage(userId: number, period: string) {
@@ -129,16 +136,18 @@ describe('IngressService', () => {
 				headers: { 'content-type': 'application/json', 'x-toss': 'a' },
 				body: Buffer.from(body),
 				content_type: 'application/json',
+				held: false,
 				connections: [
-					{ id: 30, destination_id: 3 },
-					{ id: 40, destination_id: 4 },
+					{ id: 30, destination_id: 3, paused: false },
+					{ id: 40, destination_id: 4, paused: false },
 				],
 			},
 		]);
 		expect(queue.enqueued).toEqual([103n, 104n]);
 		// 처음 전달이라는 사유를 같이 넣는다
 		expect(queue.items.every((item) => item.trigger === 'initial')).toBe(true);
-		expect(counters.usage.get(usageKey)).toBe(1);
+		// 연결이 둘이라 전달 2건으로 센다
+		expect(counters.usage.get(usageKey)).toBe(2);
 		expect(repository.rejections).toEqual([]);
 	});
 
@@ -174,7 +183,7 @@ describe('IngressService', () => {
 		expect(repository.events[0]!.content_type).toBeNull();
 	});
 
-	it('같은 웹훅이 다시 오면 처음 이벤트의 id를 주고 새로 저장하거나 큐에 넣지 않는다. 사용량은 센다', async () => {
+	it('같은 웹훅이 다시 오면 처음 이벤트의 id를 주고 새로 저장하거나 큐에 넣지 않는다. 사용량에도 넣지 않는다', async () => {
 		const first = await receive('{"order":1}');
 		const again = await receive('{"order":1}', { 'content-type': 'application/json', 'x-retry': '2' });
 
@@ -236,7 +245,7 @@ describe('IngressService', () => {
 			expect((await errorOf(receiveOversize())).code).toBe('project_suspended');
 			repository.source.suspended = false;
 			expect((await errorOf(receiveOversize())).code).toBe('no_connection');
-			repository.source.connections = [{ id: 30, destination_id: 3 }];
+			repository.source.connections = [{ id: 30, destination_id: 3, paused: false }];
 			expect((await errorOf(receiveOversize())).code).toBe('payload_too_large');
 			expect((await errorOf(receive('{}'))).code).toBe('invalid_signature');
 		});
@@ -283,16 +292,68 @@ describe('IngressService', () => {
 		});
 	});
 
+	it('일시 정지한 연결은 delivery는 만들되 사용량에 넣지 않는다. 전부 정지돼 있으면 0건으로 받는다', async () => {
+		repository.source!.connections[1]!.paused = true;
+		expect(await receive('{"n":1}')).toEqual({ id: 1n });
+		expect(repository.events[0]!.connections).toHaveLength(2);
+		expect(queue.enqueued).toEqual([103n, 104n]);
+		expect(counters.usage.get(usageKey)).toBe(1);
+
+		repository.source!.connections[0]!.paused = true;
+		expect(await receive('{"n":2}')).toEqual({ id: 2n });
+		expect(counters.usage.get(usageKey)).toBe(1);
+	});
+
 	describe('free 월 사용량', () => {
-		it('1,000건까지 받고 1,001번째는 429 usage_exceeded. 저장하지 않는다', async () => {
+		it('전달 10,000건까지 보내고, 넘으면 받아서 저장하되 전달은 보류한다. 사용량은 올리지 않는다', async () => {
 			repository.source!.plan = 'free';
-			counters.usage.set(usageKey, 999);
+			// 연결이 둘이라 웹훅 하나가 2건이다
+			counters.usage.set(usageKey, 9_998);
 
-			expect(await receive('{"n":1000}')).toEqual({ id: 1n });
-			expect(await errorOf(receive('{"n":1001}'))).toEqual({ status: 429, code: 'usage_exceeded' });
+			expect(await receive('{"n":1}')).toEqual({ id: 1n });
+			expect(repository.events[0]!.held).toBe(false);
+			expect(queue.enqueued).toHaveLength(2);
 
+			expect(await receive('{"n":2}')).toEqual({ id: 2n });
+			expect(repository.events[1]!.held).toBe(true);
+			// 보류한 것은 큐에 넣지 않는다
+			expect(queue.enqueued).toHaveLength(2);
+			expect(counters.usage.get(usageKey)).toBe(10_000);
+			expect(counters.held.get(usageKey)).toBe(2);
+			expect(repository.rejections).toEqual([]);
+		});
+
+		it('남은 양보다 연결이 많으면 일부만 보내지 않고 웹훅을 통째로 보류한다', async () => {
+			repository.source!.plan = 'free';
+			counters.usage.set(usageKey, 9_999);
+
+			expect(await receive()).toEqual({ id: 1n });
+			expect(repository.events[0]!.held).toBe(true);
+			expect(queue.items).toHaveLength(0);
+			expect(counters.usage.get(usageKey)).toBe(9_999);
+		});
+
+		it('보류로 받아 두는 양이 10,000건을 넘으면 그때부터 429 usage_exceeded. 저장하지 않는다', async () => {
+			repository.source!.plan = 'free';
+			counters.usage.set(usageKey, 10_000);
+			counters.held.set(usageKey, 9_998);
+
+			expect(await receive('{"n":1}')).toEqual({ id: 1n });
+			expect(await errorOf(receive('{"n":2}'))).toEqual({ status: 429, code: 'usage_exceeded' });
 			expect(repository.events).toHaveLength(1);
 			expect(repository.rejections.map((r) => r.reason)).toEqual(['usage_exceeded']);
+			expect(counters.usage.get(usageKey)).toBe(10_000);
+		});
+
+		it('보류 중에 같은 웹훅이 다시 오면 보류 양도 되돌린다', async () => {
+			repository.source!.plan = 'free';
+			counters.usage.set(usageKey, 10_000);
+
+			await receive('{"n":1}');
+			await receive('{"n":1}');
+			expect(repository.events).toHaveLength(1);
+			expect(counters.held.get(usageKey)).toBe(2);
+			expect(counters.usage.get(usageKey)).toBe(10_000);
 		});
 
 		it('유료는 포함량을 넘어도 받는다', async () => {
@@ -304,8 +365,8 @@ describe('IngressService', () => {
 			await receive('{"n":1}');
 			await service.receive({ slug: SLUG, ...POST, headers: {}, body: Buffer.from('{"n":2}'), size: 7, now: new Date('2026-11-01T00:00:00+09:00') });
 			expect([...counters.usage.entries()]).toEqual([
-				[`${USER}:202610`, 1],
-				[`${USER}:202611`, 1],
+				[`${USER}:202610`, 2],
+				[`${USER}:202611`, 2],
 			]);
 		});
 	});

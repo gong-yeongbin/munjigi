@@ -18,6 +18,10 @@ export const guardKeys = (destinationId: number) => ({
 	probe: `dest:${destinationId}:circuit:probe`,
 });
 
+// 그 초에 이 목적지로 보내려 한 수. 초가 지나면 쓸모없어 곧 사라지게 한다
+export const rateKey = (destinationId: number, sec: number) => `dest:${destinationId}:rate:${sec}`;
+const RATE_TTL_SEC = 10;
+
 // 만료된 자리를 치우고, 빈자리가 있으면 잡는다. 한 스크립트라 워커 여러 대가 동시에 와도 정원을 넘지 않는다.
 // 키 자체도 가장 늦게 만료되는 자리에 맞춰 사라지게 해 쓰지 않는 목적지의 키가 남지 않는다.
 // KEYS[1] inflight, ARGV: now, limit, expires_at, token
@@ -43,6 +47,15 @@ export class ValkeyDestinationGuard implements DestinationGuard {
 
 	async release(destinationId: number, token: string): Promise<void> {
 		await this.valkey.zrem(guardKeys(destinationId).inflight, token);
+	}
+
+	// 초 단위 고정 창. 넘은 것은 순번을 limit개씩 끊어 뒤 초의 시작으로 보낸다(6~10번째는 다음 초, 11~15번째는 그다음 초)
+	async throttle(destinationId: number, limitPerSec: number, now: Date): Promise<number> {
+		const sec = Math.floor(now.getTime() / 1000);
+		const key = rateKey(destinationId, sec);
+		const [[, count]] = (await this.valkey.multi().incr(key).expire(key, RATE_TTL_SEC).exec()) as [[null, number]];
+		if (count <= limitPerSec) return 0;
+		return (sec + Math.floor((count - 1) / limitPerSec)) * 1000 - now.getTime();
 	}
 
 	async circuit(destinationId: number): Promise<CircuitCheck> {

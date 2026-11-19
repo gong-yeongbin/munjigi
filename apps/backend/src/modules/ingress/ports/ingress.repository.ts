@@ -11,8 +11,8 @@ export type IngressSource = {
 	suspended: boolean;
 	signing_secret: string | null;
 	signature_config: SignatureConfig | null;
-	// 이 소스에 걸린 연결. 비어 있으면 받지 않는다
-	connections: { id: number; destination_id: number }[];
+	// 이 소스에 걸린 연결. 비어 있으면 받지 않는다. 일시 정지한 연결도 delivery는 만들지만(held) 사용량에는 넣지 않는다
+	connections: { id: number; destination_id: number; paused: boolean }[];
 };
 
 export type NewEvent = {
@@ -28,6 +28,8 @@ export type NewEvent = {
 	headers: Prisma.InputJsonObject;
 	body: Buffer;
 	content_type: string | null;
+	// true면 delivery를 pending이 아니라 held로 만든다(free가 포함량을 넘겼다). 큐에 넣지 않는다
+	held: boolean;
 	// 연결마다 delivery를 하나씩 만든다
 	connections: { id: number; destination_id: number }[];
 };
@@ -38,7 +40,7 @@ export type Rejection = { project_id: number; source_id: number; reason: Rejecti
 
 export interface IngressRepository {
 	findSourceBySlug(slug: string): Promise<IngressSource | null>;
-	// event 한 줄과 연결마다 delivery(pending) 한 줄을 한 트랜잭션으로 넣는다.
+	// event 한 줄과 연결마다 delivery(pending, held면 held) 한 줄을 한 트랜잭션으로 넣는다.
 	// 같은 source에 같은 멱등 키가 이미 있으면 넣지 않고 기존 event의 id와 duplicate: true를 준다
 	storeEvent(event: NewEvent): Promise<StoredEvent>;
 	recordRejection(rejection: Rejection): Promise<void>;

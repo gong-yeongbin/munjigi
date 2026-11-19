@@ -36,7 +36,7 @@ function Hero() {
 						<br />
 						끝까지 전달합니다
 					</h1>
-					<p className="mt-7 max-w-[40ch] text-lg leading-relaxed text-cobalt-muted">외부 서비스가 보내는 웹훅을 munjigi가 먼저 받아 저장하고, 내 서버가 정상 응답할 때까지 재시도합니다. 모든 요청이 기록되고 언제든 다시 보낼 수 있습니다.</p>
+					<p className="mt-7 max-w-[40ch] text-lg leading-relaxed text-cobalt-muted">외부 서비스가 보내는 웹훅을 munjigi가 먼저 받아 저장하고, 내 서버가 응답하지 않으면 자동으로 재시도합니다. 모든 요청이 기록되고 언제든 다시 보낼 수 있습니다.</p>
 					{landingOnly ? (
 						<span aria-disabled className={cn(buttonVariants({ size: 'lg' }), 'mt-8 pointer-events-none opacity-60')}>
 							준비 중
@@ -60,7 +60,7 @@ function Hero() {
 const FEATURES: { title: string; body: string; fragment: ReactNode }[] = [
 	{
 		title: '받는 즉시 저장하고 중복은 걸러냅니다',
-		body: '같은 웹훅이 두 번 들어와도 이벤트는 하나만 만듭니다. 외부 서비스가 준 이벤트 ID가 있으면 그 값으로, 없으면 본문 해시로 중복을 판단합니다.',
+		body: '같은 웹훅이 두 번 들어와도 이벤트는 하나만 만듭니다. 외부 서비스가 준 이벤트 ID가 있으면 그 값으로, 없으면 요청 내용의 해시로 중복을 판단합니다.',
 		fragment: (
 			<Panel label="중복 처리 예시" className="w-[320px] p-4">
 				<p className="text-muted-foreground">멱등 키</p>
@@ -105,7 +105,7 @@ const FEATURES: { title: string; body: string; fragment: ReactNode }[] = [
 	},
 	{
 		title: '목적지가 불안정하면 잠시 멈춥니다',
-		body: '목적지별로 동시 요청 수를 제한하고, 5회 연속 실패하면 60초 동안 전송을 멈춥니다. 연결을 일시 정지하면 그동안의 전달을 보류했다가 다시 켜면 이어서 보냅니다.',
+		body: '목적지별로 동시 요청 수를 제한하고, 5회 연속 실패하면 60초 동안 전송을 멈춥니다. 연결을 일시 정지하면 그동안 들어온 웹훅은 보류해 두고, 필요한 것만 골라 직접 다시 보낼 수 있습니다.',
 		fragment: (
 			<Panel label="목적지 상태 예시" className="w-[320px] p-4">
 				<p className="font-medium">api.shop.example</p>

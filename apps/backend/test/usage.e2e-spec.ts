@@ -29,10 +29,10 @@ describe('usage (e2e)', () => {
 
 	afterAll(() => t.close());
 
-	it('GET /users/me/usage — 받은 웹훅만큼 used가 오르고 프로젝트별로 센다. 거부된 요청은 안 센다', async () => {
+	it('GET /users/me/usage — 보낼 전달 수만큼 used가 오르고 프로젝트별로 센다. 거부된 요청은 안 센다', async () => {
 		const before = (await t.http().get(PATH).set(auth(owner)).expect(200)).body as UsageDto;
 		expect(before).toMatchObject({ period: usagePeriod(new Date()), plan: 'pro', included: INCLUDED_EVENTS.pro, used: 0 });
-		expect(before.projects.map((p) => [p.name, p.event_count])).toEqual([
+		expect(before.projects.map((p) => [p.name, p.delivery_count])).toEqual([
 			['shop', 0],
 			['blog', 0],
 		]);
@@ -44,11 +44,11 @@ describe('usage (e2e)', () => {
 
 		const after = (await t.http().get(PATH).set(auth(owner)).expect(200)).body as UsageDto;
 		expect(after.used).toBe(2);
-		expect(after.projects.find((p) => p.project_id === projectId)?.event_count).toBe(2);
+		expect(after.projects.find((p) => p.project_id === projectId)?.delivery_count).toBe(2);
 		expect(new Date(after.period_start).getTime()).toBeLessThanOrEqual(Date.now());
 	});
 
-	it('다른 user의 사용량은 섞이지 않는다. free는 포함량 1,000', async () => {
+	it('다른 user의 사용량은 섞이지 않는다. free는 포함량 10,000', async () => {
 		const mine = (await t.http().get(PATH).set(auth(stranger)).expect(200)).body as UsageDto;
 		expect(mine).toMatchObject({ plan: 'free', included: INCLUDED_EVENTS.free, used: 0, projects: [] });
 	});

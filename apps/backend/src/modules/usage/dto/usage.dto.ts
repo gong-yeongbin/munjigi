@@ -7,8 +7,8 @@ export class ProjectUsageDto {
 	@ApiProperty({ example: 'shop' })
 	name: string;
 
-	@ApiProperty({ description: '이번 달 이 프로젝트가 받아 저장한 이벤트 수. 보존 기간이 지나 지워진 것은 빠진다', example: 812 })
-	event_count: number;
+	@ApiProperty({ description: '이번 달 이 프로젝트의 전달(delivery) 수. 보존 기간이 지나 지워진 것은 빠진다', example: 812 })
+	delivery_count: number;
 }
 
 export class UsageDto {
@@ -21,10 +21,10 @@ export class UsageDto {
 	@ApiProperty({ enum: ['free', 'pro', 'business'], example: 'pro' })
 	plan: 'free' | 'pro' | 'business';
 
-	@ApiProperty({ description: '플랜에 포함된 월 이벤트 수', example: 10000 })
+	@ApiProperty({ description: '플랜에 포함된 월 전달 수', example: 10000 })
 	included: number;
 
-	@ApiProperty({ description: '이번 달 내 전체 사용량. 청구 기준(리플레이 포함, 거부된 요청 제외)', example: 1284 })
+	@ApiProperty({ description: '이번 달 내 전체 사용량. 청구 기준(목적지로 보내는 전달 수. 리플레이 포함, 재시도·거부된 요청 제외)', example: 1284 })
 	used: number;
 
 	@ApiProperty({ type: [ProjectUsageDto], description: '프로젝트별 조회용 수치. 합이 used와 다를 수 있다' })

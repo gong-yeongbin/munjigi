@@ -29,6 +29,9 @@ describe('PrismaUsageRepository (통합)', () => {
 				event(otherProject, '2026-10-05T00:00:00Z', 'd'),
 			],
 		});
+		// a는 목적지 두 곳, 나머지는 한 곳으로 간다
+		const ids = new Map((await prisma.event.findMany({ where: { project_id: { in: [shop, otherProject] } }, select: { id: true, idempotency_key: true } })).map((e) => [e.idempotency_key, e.id]));
+		await prisma.delivery.createMany({ data: ['a', 'a', 'b', 'c', 'd'].map((key) => ({ event_id: ids.get(key)! })) });
 	});
 
 	afterAll(async () => {
@@ -42,10 +45,10 @@ describe('PrismaUsageRepository (통합)', () => {
 		expect(await repo.findPlan(0)).toBeNull();
 	});
 
-	it('countEventsByProject — 그 user의 프로젝트만, since 이후 이벤트만, 없는 프로젝트는 0', async () => {
-		expect(await repo.countEventsByProject(userId, new Date('2026-09-30T15:00:00Z'))).toEqual([
-			{ project_id: shop, name: 'shop', event_count: 2 },
-			{ project_id: blog, name: 'blog', event_count: 0 },
+	it('countDeliveriesByProject — 그 user의 프로젝트만, since 이후 이벤트의 delivery만, 없는 프로젝트는 0', async () => {
+		expect(await repo.countDeliveriesByProject(userId, new Date('2026-09-30T15:00:00Z'))).toEqual([
+			{ project_id: shop, name: 'shop', delivery_count: 3 },
+			{ project_id: blog, name: 'blog', delivery_count: 0 },
 		]);
 	});
 });

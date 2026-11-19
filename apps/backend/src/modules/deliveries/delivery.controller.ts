@@ -21,9 +21,10 @@ export class DeliveryController {
 	@Authenticated()
 	@Post('retry')
 	@HttpCode(200)
-	@ApiOperation({ summary: '조건에 맞는 전달을 한꺼번에 다시 보낸다. 한 번에 최대 1,000건. 더 있으면 다시 부른다' })
+	@ApiOperation({ summary: '조건에 맞는 전달을 한꺼번에 다시 보낸다. 한 번에 최대 1,000건. 더 있으면 다시 부른다. held는 연결이 풀린 것만 돌린다' })
 	@ApiResponse({ status: 200, type: BulkRetryResultDto })
 	@ApiResponse({ status: 400, description: 'validation_failed' })
+	@ApiResponse({ status: 429, description: 'usage_exceeded — status가 held면 돌린 수만큼 사용량에 넣는다. free가 이번 달 포함량을 다 썼다' })
 	bulkRetry(@Param() { projectId }: ProjectParamDto, @Body() body: BulkRetryDto): Promise<BulkRetryResultDto> {
 		return this.deliveries.bulkRetry(projectId, body);
 	}
@@ -43,7 +44,8 @@ export class DeliveryController {
 	@ApiOperation({ summary: '이 전달을 지금 다시 보낸다. 시도 횟수는 이어진다. 성공한 것도 다시 보낼 수 있다' })
 	@ApiResponse({ status: 200, type: DeliveryDto })
 	@ApiResponse({ status: 404, description: 'delivery_not_found' })
-	@ApiResponse({ status: 409, description: 'delivery_pending — 처리 중' })
+	@ApiResponse({ status: 409, description: 'delivery_pending — 처리 중. delivery_held — 보류된 것인데 연결이 아직 일시 정지돼 있다' })
+	@ApiResponse({ status: 429, description: 'usage_exceeded — 보류된 것을 보내면 사용량에 넣는다. free가 이번 달 포함량을 다 썼다' })
 	retry(@Param() { projectId, deliveryId }: DeliveryParamDto): Promise<DeliveryDto> {
 		return this.deliveries.retry(projectId, BigInt(deliveryId));
 	}
