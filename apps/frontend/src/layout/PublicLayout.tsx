@@ -8,10 +8,10 @@ import { buttonVariants } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useScope } from '@/config';
 
-// 상단 메뉴. 페이지가 생기면 여기 경로만 바꾼다. open이 true면 login 범위에서도 보인다
+// 상단 메뉴. 페이지가 생기면 여기 경로만 바꾼다. open이 true면 login 범위에서도 보인다(문서·요금)
 const NAV = [
 	{ to: '/developers', label: '개발자', open: false },
-	{ to: '/docs', label: '문서', open: false },
+	{ to: '/docs', label: '문서', open: true },
 	{ to: '/pricing', label: '요금', open: true },
 ];
 
@@ -31,7 +31,7 @@ function AccountMenu({ onLogout }: { onLogout: () => void }) {
 		<DropdownMenu>
 			<DropdownMenuTrigger
 				render={<button type="button" aria-label="내 계정" />}
-				className="flex size-10 items-center justify-center overflow-hidden rounded-full bg-primary text-sm font-semibold text-sand"
+				className="flex size-10 items-center justify-center overflow-hidden rounded-full bg-primary text-sm font-semibold text-paper"
 			>
 				{avatar ? <img src={avatar} alt="" referrerPolicy="no-referrer" className="size-full object-cover" onError={() => setBroken(true)} /> : me.data?.name.slice(0, 1)}
 			</DropdownMenuTrigger>
@@ -49,7 +49,7 @@ function AccountMenu({ onLogout }: { onLogout: () => void }) {
 	);
 }
 
-// 로그인 전 화면(랜딩·요금)의 공통 틀. 모래색 바탕, 워드마크 왼쪽, 글자 링크 오른쪽. 푸터는 맨 아래 한 줄
+// 로그인 전 화면(랜딩·요금·문서)의 공통 틀. 거의 흰 따뜻한 회색 바탕에 먹색 글자, 코발트 워드마크 왼쪽, 글자 링크 오른쪽. 푸터는 맨 아래 한 줄
 export function PublicLayout({ children }: { children: ReactNode }) {
 	const { pathname } = useLocation();
 	const scope = useScope();
@@ -61,23 +61,23 @@ export function PublicLayout({ children }: { children: ReactNode }) {
 		void navigate('/login', { replace: true });
 	};
 	return (
-		<div className="min-h-screen bg-sand text-primary">
+		<div className="min-h-screen bg-paper text-foreground">
 			<header className="wrap flex items-center justify-between pt-7">
-				<Link to="/" className="font-heading text-2xl font-bold tracking-tight">
+				<Link to="/" className="font-heading text-2xl font-bold tracking-tight text-primary">
 					munjigi
 				</Link>
 				<nav className="flex items-center gap-7 text-[15px]">
-					{/* 메뉴는 전부 공개할 때. login 범위에서는 open인 것(요금)만. 로그인·시작하기는 로그인이 열려 있으면 둔다 */}
+					{/* 메뉴는 전부 공개할 때. login 범위에서는 open인 것(문서·요금)만. 로그인·시작하기는 로그인이 열려 있으면 둔다 */}
 					{scope !== 'landing' &&
 						NAV.filter((item) => scope === 'all' || item.open).map((item) => (
-							<Link key={item.to} to={item.to} className={cn('underline-offset-4 hover:underline', pathname === item.to ? 'font-semibold' : 'text-cobalt-muted')}>
+							<Link key={item.to} to={item.to} className={cn('underline-offset-4 hover:underline', pathname === item.to || pathname.startsWith(`${item.to}/`) ? 'font-semibold' : 'text-ink-muted')}>
 								{item.label}
 							</Link>
 						))}
 					{loggedIn && <AccountMenu onLogout={logout} />}
 					{scope !== 'landing' && !loggedIn && (
 						<>
-							<Link to="/login" className="text-cobalt-muted underline-offset-4 hover:underline">
+							<Link to="/login" className="text-ink-muted underline-offset-4 hover:underline">
 								로그인
 							</Link>
 							<Link to="/login" className={buttonVariants({ size: 'lg' })}>
@@ -91,7 +91,7 @@ export function PublicLayout({ children }: { children: ReactNode }) {
 			<main>{children}</main>
 
 			{/* 푸터는 한 줄. 왼쪽에 설명·GitHub, 오른쪽에 저작권. 앞 블록에 바로 붙는다 */}
-			<footer className="wrap flex items-baseline gap-6 py-10 text-[15px] text-cobalt-muted">
+			<footer className="wrap flex items-baseline gap-6 py-10 text-[15px] text-ink-muted">
 				<span>웹훅 수신 게이트웨이</span>
 				<a href="https://github.com/gong-yeongbin/munjigi" target="_blank" rel="noreferrer" className="text-primary underline-offset-4 hover:underline">
 					GitHub
@@ -108,7 +108,7 @@ export function ComingSoon({ title }: { title: string }) {
 		<PublicLayout>
 			<section className="wrap pt-[110px]">
 				<h1 className="text-[40px] font-bold tracking-tight">{title}</h1>
-				<p className="mt-3 text-lg text-cobalt-muted">준비 중입니다.</p>
+				<p className="mt-3 text-lg text-ink-muted">준비 중입니다.</p>
 			</section>
 		</PublicLayout>
 	);

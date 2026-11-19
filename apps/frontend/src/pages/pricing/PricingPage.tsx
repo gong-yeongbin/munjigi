@@ -25,16 +25,16 @@ export function PricingPage() {
 				{/* 880px 열을 가운데에. 글은 열 안에서 왼쪽 정렬 */}
 				<div className="mx-auto max-w-[880px]">
 					<h1 className="text-[40px] font-bold tracking-tight">요금</h1>
-					<p className="mt-4 text-lg text-cobalt-muted">월 요금에 포함된 전달 건수를 넘으면 사용한 만큼만 추가로 과금됩니다.</p>
+					<p className="mt-4 text-lg text-ink-muted">월 요금에 포함된 전달 건수를 넘으면 사용한 만큼만 추가로 과금됩니다.</p>
 
-					{/* 선 없이 칸 둘. Team은 랜딩의 코발트 블록과 같은 색 */}
+					{/* 선 없이 칸 둘. 추천 플랜(Pro)은 랜딩의 코발트 블록과 같은 색 */}
 					<div className="mt-12 grid grid-cols-2 gap-2">
 						{PLANS.map((plan) => (
-							<div key={plan.name} className={cn('rounded-lg p-7', plan.featured ? 'bg-primary text-sand' : 'bg-sand-2')}>
-								<p className={cn('text-[15px] font-semibold', plan.featured ? 'text-sand/70' : 'text-cobalt-muted')}>{plan.name}</p>
+							<div key={plan.name} className={cn('rounded-lg p-7', plan.featured ? 'bg-primary text-paper' : 'bg-paper-2')}>
+								<p className={cn('text-[15px] font-semibold', plan.featured ? 'text-paper/70' : 'text-ink-muted')}>{plan.name}</p>
 								<p className="mt-2">
 									<span className="text-[32px] font-bold tracking-tight">{plan.price}</span>
-									<span className={cn('ml-1 text-sm', plan.featured ? 'text-sand/70' : 'text-cobalt-muted')}>/ 월</span>
+									<span className={cn('ml-1 text-sm', plan.featured ? 'text-paper/70' : 'text-ink-muted')}>/ 월</span>
 								</p>
 								<ul className="mt-6 m-0 list-none space-y-2.5 p-0 text-[15px]">
 									{plan.rows.map((row) => (
@@ -42,11 +42,11 @@ export function PricingPage() {
 									))}
 								</ul>
 								{landingOnly ? (
-									<span aria-disabled className={cn(buttonVariants({ size: 'lg' }), 'mt-7 w-full pointer-events-none opacity-60', plan.featured && 'bg-sand text-primary')}>
+									<span aria-disabled className={cn(buttonVariants({ size: 'lg' }), 'mt-7 w-full pointer-events-none opacity-60', plan.featured && 'bg-paper text-primary')}>
 										준비 중
 									</span>
 								) : (
-									<Link to="/login" className={cn(buttonVariants({ size: 'lg' }), 'mt-7 w-full', plan.featured && 'bg-sand text-primary hover:bg-sand-2')}>
+									<Link to="/login" className={cn(buttonVariants({ size: 'lg' }), 'mt-7 w-full', plan.featured && 'bg-paper text-primary hover:bg-paper-2')}>
 										시작하기
 									</Link>
 								)}
@@ -54,8 +54,8 @@ export function PricingPage() {
 						))}
 					</div>
 
-					<div className="mt-2 rounded-lg bg-sand-2 px-6 py-4">
-						<p className="text-[13px] text-cobalt-muted">모든 플랜 공통</p>
+					<div className="mt-2 rounded-lg bg-paper-2 px-6 py-4">
+						<p className="text-[13px] text-ink-muted">모든 플랜 공통</p>
 						<div className="mt-2.5 grid grid-cols-2 gap-x-6 gap-y-2 text-[15px]">
 							{INCLUDED.map((item) => (
 								<p key={item} className="flex items-center gap-2">

@@ -43,7 +43,7 @@ export function LoginPage() {
 	};
 
 	return (
-		<div className="flex min-h-screen items-center justify-center bg-sand">
+		<div className="flex min-h-screen items-center justify-center bg-paper-2">
 			<div className="w-[400px] rounded-lg bg-card px-8 py-10 text-center text-card-foreground">
 				<Link to="/" className="font-heading text-2xl font-bold tracking-tight text-primary">
 					munjigi

@@ -45,13 +45,13 @@ describe('공개 범위(SCOPE)', () => {
 	describe('login', () => {
 		const only = { scope: 'login' as const };
 
-		it('랜딩 상단에 요금·로그인·시작하기. 개발자·문서 메뉴는 없다', () => {
+		it('랜딩 상단에 문서·요금·로그인·시작하기. 개발자 메뉴는 없다', () => {
 			renderApp('/', only);
 			expect(screen.getByRole('link', { name: '요금' }).getAttribute('href')).toBe('/pricing');
 			expect(screen.getByRole('link', { name: '로그인' }).getAttribute('href')).toBe('/login');
 			expect(screen.getByRole('link', { name: '시작하기' }).getAttribute('href')).toBe('/login');
 			expect(screen.getByRole('link', { name: '무료로 시작하기' }).getAttribute('href')).toBe('/login');
-			expect(screen.queryByRole('link', { name: '문서' })).toBeNull();
+			expect(screen.getByRole('link', { name: '문서' }).getAttribute('href')).toBe('/docs');
 			expect(screen.queryByRole('link', { name: '개발자' })).toBeNull();
 			expect(screen.getByRole('button', { name: '만들고 시작하기' }).hasAttribute('disabled')).toBe(false);
 		});
@@ -79,8 +79,11 @@ describe('공개 범위(SCOPE)', () => {
 			expect(screen.getByRole('heading', { level: 1, name: /웹훅을 안전하게 받아/ })).toBeDefined();
 		});
 
-		it('/developers·/docs·/app·/invitations는 랜딩으로 보낸다', () => {
-			for (const path of ['/developers', '/docs', '/app/events', '/invitations/abc']) {
+		it('/docs는 열린다. /developers·/app·/invitations는 랜딩으로 보낸다', () => {
+			const docs = renderApp('/docs', only);
+			expect(screen.getByRole('heading', { level: 1, name: '시작하기' })).toBeDefined();
+			docs.unmount();
+			for (const path of ['/developers', '/app/events', '/invitations/abc']) {
 				const { unmount } = renderApp(path, only);
 				expect(screen.getByRole('heading', { level: 1, name: /웹훅을 안전하게 받아/ })).toBeDefined();
 				unmount();

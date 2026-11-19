@@ -36,7 +36,7 @@ function Hero() {
 						<br />
 						끝까지 전달합니다
 					</h1>
-					<p className="mt-7 max-w-[40ch] text-lg leading-relaxed text-cobalt-muted">외부 서비스가 보내는 웹훅을 munjigi가 먼저 받아 저장하고, 내 서버가 응답하지 않으면 자동으로 재시도합니다. 모든 요청이 기록되고 언제든 다시 보낼 수 있습니다.</p>
+					<p className="mt-7 max-w-[40ch] text-lg leading-relaxed text-ink-muted">외부 서비스가 보내는 웹훅을 munjigi가 먼저 받아 저장하고, 내 서버가 응답하지 않으면 자동으로 재시도합니다. 모든 요청이 기록되고 언제든 다시 보낼 수 있습니다.</p>
 					{landingOnly ? (
 						<span aria-disabled className={cn(buttonVariants({ size: 'lg' }), 'mt-8 pointer-events-none opacity-60')}>
 							준비 중
@@ -156,10 +156,10 @@ function Features() {
 					// 첫 줄은 글·조각·글, 둘째 줄은 그 반대
 					const textTop = i < 3 ? i % 2 === 0 : i % 2 === 1;
 					return (
-						<div key={f.title} className="relative h-[320px] overflow-hidden rounded-lg bg-sand-2">
+						<div key={f.title} className="relative h-[320px] overflow-hidden rounded-lg bg-paper-2">
 							<div className={cn('absolute inset-x-0 p-6', textTop ? 'top-0' : 'bottom-0')}>
 								<h3 className="text-[17px] font-medium">{f.title}</h3>
-								<p className="mt-2 text-[15px] leading-relaxed text-cobalt-muted">{f.body}</p>
+								<p className="mt-2 text-[15px] leading-relaxed text-ink-muted">{f.body}</p>
 							</div>
 							<div className={cn('absolute right-[-24px]', textTop ? 'bottom-[-12px]' : 'top-[-12px]')}>{f.fragment}</div>
 						</div>
@@ -178,13 +178,13 @@ function Cta() {
 	const navigate = useNavigate();
 	const [name, setName] = useState('shop');
 	return (
-		<section className="bg-primary text-sand">
+		<section className="bg-primary text-paper">
 			<div className="wrap flex flex-col items-center py-[160px] text-center">
 				<div>
 					<p className="text-[clamp(48px,6vw,86px)] leading-[0.92] font-bold tracking-[-0.035em] whitespace-nowrap">
 						프로젝트 하나로 시작합니다
 					</p>
-					<p className="mt-6 text-[17px] text-sand/80">
+					<p className="mt-6 text-[17px] text-paper/80">
 						{scope === 'landing' ? '곧 열립니다. 오픈 후에는 구글 계정으로 바로 로그인할 수 있습니다.' : landingOnly ? '로그인되었습니다. 대시보드가 열리면 이 계정으로 바로 이용할 수 있습니다.' : '구글 계정으로 로그인하면 바로 시작할 수 있습니다. 카드 등록은 필요 없습니다.'}
 					</p>
 				</div>

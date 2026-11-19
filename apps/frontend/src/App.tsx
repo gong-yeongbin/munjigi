@@ -6,6 +6,7 @@ import { AppShell, Placeholder } from './layout/AppShell';
 import { ComingSoon } from './layout/PublicLayout';
 import { LandingPage } from './pages/landing/LandingPage';
 import { ConnectionsPage } from './pages/connections/ConnectionsPage';
+import { DocsPage } from './pages/docs/DocsPage';
 import { DeliveriesPage } from './pages/deliveries/DeliveriesPage';
 import { DestinationsPage } from './pages/destinations/DestinationsPage';
 import { EventsPage } from './pages/events/EventsPage';
@@ -33,6 +34,8 @@ export function App({ scope = SCOPE }: { scope?: Scope }) {
 						<Route path="/" element={<LandingPage />} />
 						<Route path="/login" element={<LoginPage />} />
 						<Route path="/pricing" element={<PricingPage />} />
+						<Route path="/docs" element={<DocsPage />} />
+						<Route path="/docs/:chapter" element={<DocsPage />} />
 						{/* 대시보드는 아직 열지 않는다. 로그인 뒤에도 랜딩으로 */}
 						<Route path="*" element={<Navigate to="/" replace />} />
 					</Routes>
@@ -41,8 +44,9 @@ export function App({ scope = SCOPE }: { scope?: Scope }) {
 					<Routes>
 						<Route path="/" element={<LandingPage />} />
 						<Route path="/pricing" element={<PricingPage />} />
+						<Route path="/docs" element={<DocsPage />} />
+						<Route path="/docs/:chapter" element={<DocsPage />} />
 						<Route path="/developers" element={<ComingSoon title="개발자" />} />
-						<Route path="/docs" element={<ComingSoon title="문서" />} />
 						<Route path="/login" element={<LoginPage />} />
 						<Route element={<RequireAuth />}>
 							<Route

@@ -12,7 +12,7 @@ export const FAQ = [
 ];
 
 // 질문별 접기 목록. 하나만 열리고 같은 질문을 다시 누르면 닫힌다. 첫 질문은 열어 둔다.
-// 선 대신 질문마다 모래색 칸 하나, 요금표와 같은 880px 폭
+// 선 대신 질문마다 칸 하나, 요금표와 같은 880px 폭
 export function Faq() {
 	const [open, setOpen] = useState<number | null>(0);
 	return (
@@ -22,7 +22,7 @@ export function Faq() {
 				{FAQ.map((item, i) => {
 					const expanded = open === i;
 					return (
-						<div key={item.q} className="rounded-lg bg-sand-2 px-7">
+						<div key={item.q} className="rounded-lg bg-paper-2 px-7">
 							<button
 								type="button"
 								aria-expanded={expanded}
@@ -31,10 +31,10 @@ export function Faq() {
 								className="flex w-full items-center justify-between gap-6 py-5 text-left text-[17px] font-medium"
 							>
 								{item.q}
-								<ChevronDownIcon aria-hidden className={cn('size-4 shrink-0 text-cobalt-muted transition-transform', expanded && 'rotate-180')} />
+								<ChevronDownIcon aria-hidden className={cn('size-4 shrink-0 text-ink-muted transition-transform', expanded && 'rotate-180')} />
 							</button>
 							{expanded && (
-								<p id={`faq-${i}`} className="pb-6 text-[15px] leading-relaxed text-cobalt-muted">
+								<p id={`faq-${i}`} className="pb-6 text-[15px] leading-relaxed text-ink-muted">
 									{item.a}
 								</p>
 							)}
